@@ -2,6 +2,8 @@ package com.arnedo.micine.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "usuarios")
@@ -22,6 +24,30 @@ public class Usuario {
 
     private LocalDateTime fechaCreacion;
 
+    @ManyToMany
+    @JoinTable(
+            name = "usuario_plataforma",
+            joinColumns = @JoinColumn(name = "usuario_id"),
+            inverseJoinColumns = @JoinColumn(name = "plataforma_id")
+    )
+    private Set<Plataforma> plataformas = new HashSet<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "usuario_genero",
+            joinColumns = @JoinColumn(name = "usuario_id"),
+            inverseJoinColumns = @JoinColumn(name = "genero_id")
+    )
+    private Set<Genero> generos = new HashSet<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "usuario_pelicula_favorita",
+            joinColumns = @JoinColumn(name = "usuario_id"),
+            inverseJoinColumns = @JoinColumn(name = "pelicula_id")
+    )
+    private Set<Pelicula> peliculasFavoritas = new HashSet<>();
+
     // Constructor vacío (obligatorio para Spring Boot)
     public Usuario() {
         this.fechaCreacion = LocalDateTime.now();
@@ -41,4 +67,13 @@ public class Usuario {
     public void setPassword(String password) { this.password = password; }
 
     public LocalDateTime getFechaCreacion() { return fechaCreacion; }
+
+    public Set<Plataforma> getPlataformas() { return plataformas; }
+    public void setPlataformas(Set<Plataforma> plataformas) { this.plataformas = plataformas; }
+
+    public Set<Genero> getGeneros() { return generos; }
+    public void setGeneros(Set<Genero> generos) { this.generos = generos; }
+
+    public Set<Pelicula> getPeliculasFavoritas() { return peliculasFavoritas; }
+    public void setPeliculasFavoritas(Set<Pelicula> peliculasFavoritas) { this.peliculasFavoritas = peliculasFavoritas; }
 }
