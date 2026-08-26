@@ -25,13 +25,21 @@ public class TmdbService {
     }
 
     public TmdbResponse obtenerPeliculasPopulares() {
-        String url = apiUrl + "/movie/popular?language=es-ES&api_key=" + apiKey;
-        TmdbResponse response = restTemplate.getForObject(url, TmdbResponse.class);
+        try {
+            String url = apiUrl + "/movie/popular?language=es-ES&api_key=" + apiKey;
+            TmdbResponse response = restTemplate.getForObject(url, TmdbResponse.class);
 
-        if (response != null && response.getResults() != null) {
-            asignarVideos(response.getResults());
+            if (response != null && response.getResults() != null) {
+                asignarVideos(response.getResults());
+            }
+            return response;
+
+        } catch (Exception e) {
+            // ¡Si TMDB falla, esto va a escupir la verdad en la consola de Render!
+            System.out.println(" ERROR CRÍTICO AL BUSCAR PELÍCULAS: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
-        return response;
     }
 
     public TmdbResponse getRecomendaciones(String generosTmdbIds) {
