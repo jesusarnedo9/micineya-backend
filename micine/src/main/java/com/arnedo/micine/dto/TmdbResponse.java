@@ -5,8 +5,8 @@ import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TmdbResponse {
-    private List results;
+    private List<PeliculaDto> results;
 
-    public List getResults() { return results; }
-    public void setResults(List results) { this.results = results; }
+    public List<PeliculaDto> getResults() { return results; }
+    public void setResults(List<PeliculaDto> results) { this.results = results; }
 }
