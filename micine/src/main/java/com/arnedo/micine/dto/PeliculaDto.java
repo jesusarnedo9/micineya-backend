@@ -1,7 +1,9 @@
 package com.arnedo.micine.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class PeliculaDto {
     private Long id;
     private String title;
