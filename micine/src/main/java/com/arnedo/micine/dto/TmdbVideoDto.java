@@ -1,9 +1,11 @@
 package com.arnedo.micine.dto;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+@JsonIgnoreProperties(ignoreUnknown = true) // ¡Acá también!
 public class TmdbVideoDto {
-    private String key; // Acá viene el ID de YouTube (ej: "dQw4w9WgXcQ")
-    private String site; // "YouTube", "Vimeo", etc.
-    private String type; // "Trailer", "Teaser", "Clip"
+    private String key;
+    private String site;
+    private String type;
 
     public String getKey() { return key; }
     public void setKey(String key) { this.key = key; }

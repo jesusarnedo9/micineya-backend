@@ -1,6 +1,8 @@
 package com.arnedo.micine.dto;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+@JsonIgnoreProperties(ignoreUnknown = true) // ¡Esta es la magia!
 public class TmdbVideoResponse {
     private List<TmdbVideoDto> results;
 
