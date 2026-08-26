@@ -6,6 +6,7 @@ public class PeliculaDto {
     private Long id;
     private String title;
     private String overview;
+    private String videoKey;
 
     // La API manda "poster_path", pero en Java usamos camelCase.
     // Esta anotación hace la traducción automática.
@@ -20,4 +21,6 @@ public class PeliculaDto {
     public void setOverview(String overview) { this.overview = overview; }
     public String getPosterPath() { return posterPath; }
     public void setPosterPath(String posterPath) { this.posterPath = posterPath; }
+    public String getVideoKey() { return videoKey; }
+    public void setVideoKey(String videoKey) { this.videoKey = videoKey; }
 }
