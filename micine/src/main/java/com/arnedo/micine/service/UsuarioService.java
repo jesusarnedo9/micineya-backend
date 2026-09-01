@@ -3,6 +3,7 @@ package com.arnedo.micine.service;
 import com.arnedo.micine.dto.AuthResponse;
 import com.arnedo.micine.dto.LoginRequest;
 import com.arnedo.micine.dto.OnboardingRequest;
+import com.arnedo.micine.dto.OnboardingStatusResponse;
 import com.arnedo.micine.dto.PerfilRecomendacion;
 import com.arnedo.micine.dto.RegistroRequest;
 import com.arnedo.micine.entity.Usuario;
@@ -100,6 +101,30 @@ public class UsuarioService {
         // 4. Guardamos los cambios
         usuarioRepository.save(usuario);
     }
+
+    @Transactional(readOnly = true)
+    public OnboardingStatusResponse getOnboardingStatus(String email) {
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        Set<Long> plataformaIds = usuario.getPlataformas().stream()
+                .map(Plataforma::getId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Set<Long> generoIds = usuario.getGeneros().stream()
+                .map(Genero::getId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        return new OnboardingStatusResponse(
+                "AR",
+                plataformaIds,
+                generoIds,
+                !plataformaIds.isEmpty() && !generoIds.isEmpty()
+        );
+    }
+
     public String getGenerosTmdbIds(String email) {
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));

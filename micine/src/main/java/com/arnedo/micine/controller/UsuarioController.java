@@ -4,6 +4,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.arnedo.micine.dto.OnboardingRequest;
+import com.arnedo.micine.dto.OnboardingStatusResponse;
 import com.arnedo.micine.service.UsuarioService;
 import com.arnedo.micine.dto.PeliculaRequest;
 import com.arnedo.micine.entity.Pelicula;
@@ -35,6 +36,11 @@ public class UsuarioController {
         // principal.getName() nos da el email del usuario logueado gracias al Token
         usuarioService.guardarPreferencias(principal.getName(), request);
         return ResponseEntity.ok("Preferencias guardadas exitosamente");
+    }
+
+    @GetMapping("/onboarding")
+    public ResponseEntity<OnboardingStatusResponse> obtenerEstadoOnboarding(Principal principal) {
+        return ResponseEntity.ok(usuarioService.getOnboardingStatus(principal.getName()));
     }
 
     @PostMapping("/favoritas")
