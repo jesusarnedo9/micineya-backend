@@ -13,11 +13,15 @@ public class Plataforma {
     @Column(nullable = false, unique = true)
     private String nombre;
 
+    @Column(unique = true)
+    private Integer tmdbProviderId;
+
     // Constructor vacío obligatorio
     public Plataforma() {}
 
-    public Plataforma(String nombre) {
+    public Plataforma(String nombre, Integer tmdbProviderId) {
         this.nombre = nombre;
+        this.tmdbProviderId = tmdbProviderId;
     }
 
     // Getters y Setters
@@ -26,4 +30,7 @@ public class Plataforma {
 
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
+
+    public Integer getTmdbProviderId() { return tmdbProviderId; }
+    public void setTmdbProviderId(Integer tmdbProviderId) { this.tmdbProviderId = tmdbProviderId; }
 }

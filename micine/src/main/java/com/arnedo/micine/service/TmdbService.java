@@ -1,16 +1,31 @@
 package com.arnedo.micine.service;
 
 import com.arnedo.micine.dto.PeliculaDto;
+import com.arnedo.micine.dto.PerfilRecomendacion;
 import com.arnedo.micine.dto.TmdbResponse;
-import com.arnedo.micine.dto.TmdbVideoResponse;
 import com.arnedo.micine.dto.TmdbVideoDto;
+import com.arnedo.micine.dto.TmdbVideoResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class TmdbService {
+
+    private static final String REGION_ARGENTINA = "AR";
+    private static final int CANTIDAD_RECOMENDACIONES = 10;
+    private static final int PAGINAS_CANDIDATAS = 3;
+    private static final int MAX_FAVORITAS_PARA_AFINIDAD = 5;
 
     private final RestTemplate restTemplate;
 
@@ -24,70 +39,157 @@ public class TmdbService {
         this.restTemplate = restTemplate;
     }
 
-    public TmdbResponse obtenerPeliculasPopulares() {
-        try {
-            String url = apiUrl + "/movie/popular?language=es-ES&api_key=" + apiKey;
-            TmdbResponse response = restTemplate.getForObject(url, TmdbResponse.class);
+    public TmdbResponse obtenerPeliculasPopulares(int page) {
+        int paginaSegura = Math.max(page, 1);
+        String url = nuevaUrl("/movie/popular")
+                .queryParam("language", "es-ES")
+                .queryParam("region", REGION_ARGENTINA)
+                .queryParam("page", paginaSegura)
+                .build().encode().toUriString();
 
-            if (response != null && response.getResults() != null) {
-                asignarVideos(response.getResults());
-            }
-            return response;
-
-        } catch (Exception e) {
-            // ¡Si TMDB falla, esto va a escupir la verdad en la consola de Render!
-            System.out.println(" ERROR CRÍTICO AL BUSCAR PELÍCULAS: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-    }
-
-    public TmdbResponse getRecomendaciones(String generosTmdbIds) {
-        String url = apiUrl + "/discover/movie?api_key=" + apiKey
-                + "&language=es-ES&with_genres=" + generosTmdbIds;
         TmdbResponse response = restTemplate.getForObject(url, TmdbResponse.class);
-
         if (response != null && response.getResults() != null) {
             asignarVideos(response.getResults());
         }
-        return response;
+        return response == null ? new TmdbResponse(List.of()) : response;
     }
 
-    // --- MÉTODOS PRIVADOS PARA BUSCAR VIDEOS ---
+    public TmdbResponse getRecomendaciones(PerfilRecomendacion perfil) {
+        if (perfil.plataformaIds().isEmpty()) {
+            return new TmdbResponse(List.of());
+        }
+
+        Map<Long, PeliculaDto> candidatas = new LinkedHashMap<>();
+        for (int pagina = 1; pagina <= PAGINAS_CANDIDATAS; pagina++) {
+            TmdbResponse response = buscarCandidatas(perfil, pagina);
+            if (response == null || response.getResults() == null) {
+                continue;
+            }
+
+            response.getResults().stream()
+                    .filter(pelicula -> pelicula.getId() != null)
+                    .filter(pelicula -> !perfil.peliculasVistasIds().contains(pelicula.getId()))
+                    .forEach(pelicula -> candidatas.putIfAbsent(pelicula.getId(), pelicula));
+        }
+
+        Map<Long, Integer> afinidadPorFavoritas = obtenerAfinidadPorFavoritas(perfil.peliculasFavoritasIds());
+        List<PeliculaDto> elegidas = candidatas.values().stream()
+                .sorted(Comparator.comparingInt(
+                        (PeliculaDto pelicula) -> afinidadPorFavoritas.getOrDefault(pelicula.getId(), 0)
+                ).reversed())
+                .limit(CANTIDAD_RECOMENDACIONES)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        asignarVideos(elegidas);
+        return new TmdbResponse(elegidas);
+    }
+
+    private TmdbResponse buscarCandidatas(PerfilRecomendacion perfil, int pagina) {
+        UriComponentsBuilder url = nuevaUrl("/discover/movie")
+                .queryParam("language", "es-ES")
+                .queryParam("region", REGION_ARGENTINA)
+                .queryParam("watch_region", REGION_ARGENTINA)
+                .queryParam("with_watch_monetization_types", "flatrate")
+                .queryParam("with_watch_providers", unirIds(perfil.plataformaIds()))
+                .queryParam("include_adult", false)
+                .queryParam("sort_by", "popularity.desc")
+                .queryParam("vote_count.gte", 30)
+                .queryParam("page", pagina);
+
+        if (!perfil.generoIds().isEmpty()) {
+            // El separador | representa OR: alcanza con coincidir con uno de los gustos.
+            url.queryParam("with_genres", unirIds(perfil.generoIds()));
+        }
+
+        return restTemplate.getForObject(url.build().encode().toUriString(), TmdbResponse.class);
+    }
+
+    private Map<Long, Integer> obtenerAfinidadPorFavoritas(Set<Long> favoritasIds) {
+        Map<Long, Integer> afinidad = new LinkedHashMap<>();
+        favoritasIds.stream().limit(MAX_FAVORITAS_PARA_AFINIDAD).forEach(tmdbId -> {
+            try {
+                String url = nuevaUrl("/movie/" + tmdbId + "/recommendations")
+                        .queryParam("language", "es-ES")
+                        .queryParam("page", 1)
+                        .build().encode().toUriString();
+                TmdbResponse response = restTemplate.getForObject(url, TmdbResponse.class);
+                if (response != null && response.getResults() != null) {
+                    response.getResults().stream()
+                            .map(PeliculaDto::getId)
+                            .filter(java.util.Objects::nonNull)
+                            .forEach(id -> afinidad.merge(id, 1, Integer::sum));
+                }
+            } catch (Exception ignored) {
+                // Una favorita sin recomendaciones no debe romper todo el feed.
+            }
+        });
+        return afinidad;
+    }
+
+    private String unirIds(Set<Integer> ids) {
+        return ids.stream().sorted().map(String::valueOf).collect(Collectors.joining("|"));
+    }
+
+    private UriComponentsBuilder nuevaUrl(String path) {
+        return UriComponentsBuilder.fromUriString(apiUrl)
+                .path(path)
+                .queryParam("api_key", apiKey);
+    }
 
     private void asignarVideos(List<PeliculaDto> peliculas) {
-        for (PeliculaDto p : peliculas) {
+        for (PeliculaDto pelicula : peliculas) {
             try {
-                // 1. Buscamos trailer en español
-                String videoUrlEs = apiUrl + "/movie/" + p.getId() + "/videos?api_key=" + apiKey + "&language=es-ES";
-                TmdbVideoResponse videoRes = restTemplate.getForObject(videoUrlEs, TmdbVideoResponse.class);
+                TmdbVideoResponse videosEspanol = buscarVideos(pelicula.getId(), "es-ES");
+                String key = extraerMejorVideo(videosEspanol);
 
-                String key = extraerMejorVideo(videoRes);
-
-                // 2. Fallback: Si no hay en español, buscamos en el idioma original (sin filtro de idioma)
                 if (key == null) {
-                    String videoUrlEn = apiUrl + "/movie/" + p.getId() + "/videos?api_key=" + apiKey;
-                    TmdbVideoResponse videoResEn = restTemplate.getForObject(videoUrlEn, TmdbVideoResponse.class);
-                    key = extraerMejorVideo(videoResEn);
+                    key = extraerMejorVideo(buscarVideos(pelicula.getId(), null));
                 }
-
-                p.setVideoKey(key);
-            } catch (Exception e) {
-                // Si falla un video, que no se caiga toda la lista. Pasa a la siguiente película.
-                System.out.println("Error buscando video para la película: " + p.getId());
+                pelicula.setVideoKey(key);
+            } catch (Exception ignored) {
+                pelicula.setVideoKey(null);
             }
         }
+    }
+
+    private TmdbVideoResponse buscarVideos(Long peliculaId, String language) {
+        UriComponentsBuilder url = nuevaUrl("/movie/" + peliculaId + "/videos");
+        if (language != null) {
+            url.queryParam("language", language);
+        }
+        return restTemplate.getForObject(url.build().encode().toUriString(), TmdbVideoResponse.class);
     }
 
     private String extraerMejorVideo(TmdbVideoResponse response) {
-        if (response == null || response.getResults() == null) return null;
-
-        for (TmdbVideoDto v : response.getResults()) {
-            if ("YouTube".equalsIgnoreCase(v.getSite()) &&
-                    ("Trailer".equalsIgnoreCase(v.getType()) || "Teaser".equalsIgnoreCase(v.getType()))) {
-                return v.getKey();
-            }
+        if (response == null || response.getResults() == null) {
+            return null;
         }
-        return null;
+
+        return response.getResults().stream()
+                .filter(video -> "YouTube".equalsIgnoreCase(video.getSite()))
+                .filter(video -> puntuarVideo(video) > 0)
+                .max(Comparator.comparingInt(this::puntuarVideo))
+                .map(TmdbVideoDto::getKey)
+                .orElse(null);
+    }
+
+    private int puntuarVideo(TmdbVideoDto video) {
+        String nombre = video.getName() == null ? "" : video.getName().toLowerCase(Locale.ROOT);
+        String tipo = video.getType() == null ? "" : video.getType().toLowerCase(Locale.ROOT);
+
+        int puntaje;
+        if (nombre.contains("tv spot") || nombre.contains("spot de tv")) {
+            puntaje = 100;
+        } else if ("teaser".equals(tipo)) {
+            puntaje = 80;
+        } else if ("trailer".equals(tipo)) {
+            puntaje = 60;
+        } else if ("clip".equals(tipo)) {
+            puntaje = 40;
+        } else {
+            return 0;
+        }
+
+        return Boolean.TRUE.equals(video.getOfficial()) ? puntaje + 10 : puntaje;
     }
 }

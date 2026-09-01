@@ -3,6 +3,7 @@ package com.arnedo.micine.service;
 import com.arnedo.micine.dto.AuthResponse;
 import com.arnedo.micine.dto.LoginRequest;
 import com.arnedo.micine.dto.OnboardingRequest;
+import com.arnedo.micine.dto.PerfilRecomendacion;
 import com.arnedo.micine.dto.RegistroRequest;
 import com.arnedo.micine.entity.Usuario;
 import com.arnedo.micine.repository.UsuarioRepository;
@@ -15,7 +16,9 @@ import com.arnedo.micine.repository.GeneroRepository;
 import com.arnedo.micine.repository.PlataformaRepository;
 import com.arnedo.micine.entity.Pelicula;
 import com.arnedo.micine.repository.PeliculaRepository;
+import com.arnedo.micine.repository.ResenaRepository;
 import com.arnedo.micine.dto.PeliculaRequest;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
@@ -31,19 +34,22 @@ public class UsuarioService {
     private final PlataformaRepository plataformaRepository;
     private final GeneroRepository generoRepository;
     private final PeliculaRepository peliculaRepository;
+    private final ResenaRepository resenaRepository;
 
     public UsuarioService(UsuarioRepository usuarioRepository,
                           PasswordEncoder passwordEncoder,
                           JwtService jwtService,
                           PlataformaRepository plataformaRepository,
                           GeneroRepository generoRepository,
-                          PeliculaRepository peliculaRepository) {
+                          PeliculaRepository peliculaRepository,
+                          ResenaRepository resenaRepository) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.plataformaRepository = plataformaRepository;
         this.generoRepository = generoRepository;
         this.peliculaRepository = peliculaRepository;
+        this.resenaRepository = resenaRepository;
     }
 
     public AuthResponse registrar(RegistroRequest request) {
@@ -82,8 +88,10 @@ public class UsuarioService {
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
         // 2. Buscamos las plataformas y géneros por los IDs que mandó el celular
-        List plataformas = plataformaRepository.findAllById(request.getPlataformaIds());
-        List generos = generoRepository.findAllById(request.getGeneroIds());
+        List<Plataforma> plataformas = plataformaRepository.findAllById(
+                request.getPlataformaIds() == null ? List.of() : request.getPlataformaIds());
+        List<Genero> generos = generoRepository.findAllById(
+                request.getGeneroIds() == null ? List.of() : request.getGeneroIds());
 
         // 3. Se los asignamos al usuario (transformando la List a Set)
         usuario.setPlataformas(new HashSet<>(plataformas));
@@ -99,7 +107,40 @@ public class UsuarioService {
         // Extraemos los tmdbId, los convertimos a texto y los unimos con comas
         return usuario.getGeneros().stream()
                 .map(g -> String.valueOf(g.getTmdbId()))
-                .collect(Collectors.joining(","));
+                .collect(Collectors.joining("|"));
+    }
+
+    @Transactional(readOnly = true)
+    public PerfilRecomendacion getPerfilRecomendacion(String email) {
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        Set<Integer> generoIds = usuario.getGeneros().stream()
+                .map(Genero::getTmdbId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Set<Integer> plataformaIds = usuario.getPlataformas().stream()
+                .map(Plataforma::getTmdbProviderId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        // Hasta completar el onboarding usamos todas las plataformas soportadas,
+        // pero siempre restringidas a disponibilidad por suscripción en Argentina.
+        if (plataformaIds.isEmpty()) {
+            plataformaIds = plataformaRepository.findAll().stream()
+                    .map(Plataforma::getTmdbProviderId)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(Collectors.toSet());
+        }
+
+        Set<Long> favoritasIds = usuario.getPeliculasFavoritas().stream()
+                .map(Pelicula::getTmdbId)
+                .collect(Collectors.toSet());
+
+        Set<Long> vistasIds = resenaRepository.findPeliculasVistasTmdbIdsByUsuarioEmail(email);
+
+        return new PerfilRecomendacion(generoIds, plataformaIds, vistasIds, favoritasIds);
     }
 
     public void agregarPeliculaFavorita(String email, PeliculaRequest request) {
@@ -121,7 +162,7 @@ public class UsuarioService {
         usuarioRepository.save(usuario);
     }
 
-    public Set getPeliculasFavoritas(String email) {
+    public Set<Pelicula> getPeliculasFavoritas(String email) {
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 

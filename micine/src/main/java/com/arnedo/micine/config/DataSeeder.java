@@ -22,16 +22,10 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Si no hay plataformas, las creamos
-        if (plataformaRepository.count() == 0) {
-            plataformaRepository.saveAll(List.of(
-                    new Plataforma("Netflix"),
-                    new Plataforma("Max"),
-                    new Plataforma("Disney+"),
-                    new Plataforma("Prime Video")
-            ));
-            System.out.println("Plataformas iniciales cargadas.");
-        }
+        guardarOActualizarPlataforma("Netflix", 8);
+        guardarOActualizarPlataforma("Max", 1899);
+        guardarOActualizarPlataforma("Disney+", 337);
+        guardarOActualizarPlataforma("Prime Video", 119);
 
         // Si no hay géneros, los creamos (con los IDs reales de la API de TMDB)
         if (generoRepository.count() == 0) {
@@ -44,5 +38,12 @@ public class DataSeeder implements CommandLineRunner {
             ));
             System.out.println("Géneros iniciales cargados.");
         }
+    }
+
+    private void guardarOActualizarPlataforma(String nombre, Integer tmdbProviderId) {
+        Plataforma plataforma = plataformaRepository.findByNombre(nombre)
+                .orElseGet(() -> new Plataforma(nombre, tmdbProviderId));
+        plataforma.setTmdbProviderId(tmdbProviderId);
+        plataformaRepository.save(plataforma);
     }
 }

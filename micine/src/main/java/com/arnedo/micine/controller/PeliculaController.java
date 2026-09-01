@@ -6,6 +6,7 @@ import com.arnedo.micine.service.UsuarioService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
@@ -23,16 +24,13 @@ public class PeliculaController {
     }
 
     @GetMapping("/populares")
-    public TmdbResponse getPopulares() {
-        return tmdbService.obtenerPeliculasPopulares();
+    public TmdbResponse getPopulares(@RequestParam(defaultValue = "1") int page) {
+        return tmdbService.obtenerPeliculasPopulares(page);
     }
     @GetMapping("/recomendadas")
     public ResponseEntity getRecomendadas(Principal principal) {
-        // 1. Averiguamos qué géneros le gustan al usuario logueado
-        String generosIds = usuarioService.getGenerosTmdbIds(principal.getName());
-
-        // 2. Le pedimos a TMDB las películas que coincidan con esos gustos
-        TmdbResponse recomendaciones = tmdbService.getRecomendaciones(generosIds);
+        var perfil = usuarioService.getPerfilRecomendacion(principal.getName());
+        TmdbResponse recomendaciones = tmdbService.getRecomendaciones(perfil);
 
         return ResponseEntity.ok(recomendaciones);
     }
