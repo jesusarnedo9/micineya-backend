@@ -4,6 +4,7 @@ import com.arnedo.micine.dto.PeliculaDto;
 import com.arnedo.micine.dto.PerfilRecomendacion;
 import com.arnedo.micine.dto.TmdbResponse;
 import com.arnedo.micine.dto.TmdbVideoResponse;
+import com.arnedo.micine.dto.TmdbVideoDto;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
@@ -47,6 +48,50 @@ class TmdbServiceTests {
         assertThat(response.getResults()).hasSize(10);
         assertThat(response.getResults()).extracting(PeliculaDto::getId).doesNotContain(1L);
         assertThat(response.getResults()).extracting(PeliculaDto::getId).startsWith(3L, 4L);
+    }
+
+    @Test
+    void popularesPriorizanTrailerLatinoCompletoSobreUnSpot() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        TmdbService service = new TmdbService(restTemplate);
+        ReflectionTestUtils.setField(service, "apiUrl", "https://api.themoviedb.org/3");
+        ReflectionTestUtils.setField(service, "apiKey", "test");
+
+        when(restTemplate.getForObject(anyString(), eq(TmdbResponse.class)))
+                .thenReturn(respuestaConIds(550L));
+        when(restTemplate.getForObject(anyString(), eq(TmdbVideoResponse.class)))
+                .thenReturn(videos(
+                        video("spot-key", "TV Spot latino", "Trailer", true, "es", "MX"),
+                        video("trailer-key", "Trailer oficial latino", "Trailer", true, "es", "MX")
+                ));
+
+        TmdbResponse response = service.obtenerPeliculasPopulares(1);
+
+        assertThat(response.getResults().getFirst().getVideoKey()).isEqualTo("trailer-key");
+    }
+
+    private static TmdbVideoResponse videos(TmdbVideoDto... videos) {
+        TmdbVideoResponse response = new TmdbVideoResponse();
+        response.setResults(List.of(videos));
+        return response;
+    }
+
+    private static TmdbVideoDto video(
+            String key,
+            String name,
+            String type,
+            boolean official,
+            String language,
+            String country) {
+        TmdbVideoDto video = new TmdbVideoDto();
+        video.setKey(key);
+        video.setName(name);
+        video.setType(type);
+        video.setSite("YouTube");
+        video.setOfficial(official);
+        video.setLanguageCode(language);
+        video.setCountryCode(country);
+        return video;
     }
 
     private static TmdbResponse respuestaConIds(Long... ids) {

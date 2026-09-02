@@ -2,6 +2,7 @@ package com.arnedo.micine.controller;
 
 import com.arnedo.micine.dto.ResenaRequest;
 import com.arnedo.micine.service.ResenaService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.arnedo.micine.dto.ResenaResponse;
@@ -20,13 +21,19 @@ public class ResenaController {
     }
 
     @PostMapping
-    public ResponseEntity dejarResena(@RequestBody ResenaRequest request, Principal principal) {
-        resenaService.crearResena(principal.getName(), request);
-        return ResponseEntity.ok("¡Reseña guardada exitosamente!");
+    public ResponseEntity<ResenaResponse> dejarResena(
+            @Valid @RequestBody ResenaRequest request,
+            Principal principal) {
+        return ResponseEntity.ok(resenaService.guardarResena(principal.getName(), request));
     }
 
     @GetMapping("/pelicula/{tmdbId}")
-    public ResponseEntity verResenasDePelicula(@PathVariable Long tmdbId) {
+    public ResponseEntity<List<ResenaResponse>> verResenasDePelicula(@PathVariable Long tmdbId) {
         return ResponseEntity.ok(resenaService.obtenerResenasPorPelicula(tmdbId));
+    }
+
+    @GetMapping("/mias")
+    public ResponseEntity<List<ResenaResponse>> verMisResenas(Principal principal) {
+        return ResponseEntity.ok(resenaService.obtenerMisResenas(principal.getName()));
     }
 }

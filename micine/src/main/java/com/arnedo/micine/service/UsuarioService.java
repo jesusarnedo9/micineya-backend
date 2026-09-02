@@ -19,6 +19,7 @@ import com.arnedo.micine.entity.Pelicula;
 import com.arnedo.micine.repository.PeliculaRepository;
 import com.arnedo.micine.repository.ResenaRepository;
 import com.arnedo.micine.dto.PeliculaRequest;
+import com.arnedo.micine.dto.PerfilUsuarioResponse;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
@@ -54,33 +55,67 @@ public class UsuarioService {
     }
 
     public AuthResponse registrar(RegistroRequest request) {
-        if (usuarioRepository.existsByEmail(request.getEmail())) {
+        String email = request.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
+        String username = request.getUsername().trim();
+
+        if (usuarioRepository.existsByEmailIgnoreCase(email)) {
             throw new IllegalArgumentException("Ese email ya está registrado");
         }
-        if (usuarioRepository.existsByUsername(request.getUsername())) {
+        if (usuarioRepository.existsByUsernameIgnoreCase(username)) {
             throw new IllegalArgumentException("Ese username ya está en uso");
         }
 
         Usuario usuario = new Usuario();
-        usuario.setUsername(request.getUsername());
-        usuario.setEmail(request.getEmail());
+        usuario.setUsername(username);
+        usuario.setEmail(email);
         usuario.setPassword(passwordEncoder.encode(request.getPassword()));
         usuarioRepository.save(usuario);
 
-        String token = jwtService.generarToken(usuario.getEmail());
+        String token = jwtService.generarToken(usuario.getEmail(), usuario.getTokenVersion());
         return new AuthResponse(token, usuario.getUsername());
     }
 
     public AuthResponse login(LoginRequest request) {
-        Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Email o contraseña incorrectos"));
+        String identifier = request.getIdentifier().trim();
+        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(identifier)
+                .or(() -> usuarioRepository.findByUsernameIgnoreCase(identifier))
+                .orElseThrow(() -> new IllegalArgumentException("Usuario, email o contraseña incorrectos"));
 
         if (!passwordEncoder.matches(request.getPassword(), usuario.getPassword())) {
-            throw new IllegalArgumentException("Email o contraseña incorrectos");
+            throw new IllegalArgumentException("Usuario, email o contraseña incorrectos");
         }
 
-        String token = jwtService.generarToken(usuario.getEmail());
+        String token = jwtService.generarToken(usuario.getEmail(), usuario.getTokenVersion());
         return new AuthResponse(token, usuario.getUsername());
+    }
+
+    @Transactional(readOnly = true)
+    public PerfilUsuarioResponse obtenerPerfil(String email) {
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        List<com.arnedo.micine.entity.Resena> resenas = resenaRepository.findByUsuarioEmail(email);
+        long conComentario = resenas.stream()
+                .filter(resena -> resena.getComentario() != null && !resena.getComentario().isBlank())
+                .map(resena -> resena.getPelicula().getTmdbId())
+                .distinct()
+                .count();
+
+        return new PerfilUsuarioResponse(
+                usuario.getUsername(),
+                usuario.getEmail(),
+                resenaRepository.findPeliculasVistasTmdbIdsByUsuarioEmail(email).size(),
+                usuario.getPeliculasFavoritas().size(),
+                conComentario
+        );
+    }
+
+    @Transactional
+    public void cerrarSesion(String email) {
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+        usuario.incrementarTokenVersion();
+        usuarioRepository.save(usuario);
     }
 
     public void guardarPreferencias(String email, OnboardingRequest request) {

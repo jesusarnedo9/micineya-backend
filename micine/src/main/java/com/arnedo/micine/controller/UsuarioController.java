@@ -7,6 +7,7 @@ import com.arnedo.micine.dto.OnboardingRequest;
 import com.arnedo.micine.dto.OnboardingStatusResponse;
 import com.arnedo.micine.service.UsuarioService;
 import com.arnedo.micine.dto.PeliculaRequest;
+import com.arnedo.micine.dto.PerfilUsuarioResponse;
 import com.arnedo.micine.entity.Pelicula;
 import java.util.Set;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -26,9 +27,8 @@ public class UsuarioController {
     }
 
     @GetMapping("/me")
-    public String miPerfil(Principal principal) {
-        // "Principal" es un objeto de Spring que sabe quién está logueado gracias al Token
-        return "¡Hola " + principal.getName() + "! Tu token funciona perfecto y estás dentro de la zona VIP.";
+    public ResponseEntity<PerfilUsuarioResponse> miPerfil(Principal principal) {
+        return ResponseEntity.ok(usuarioService.obtenerPerfil(principal.getName()));
     }
 
     @PostMapping("/onboarding")

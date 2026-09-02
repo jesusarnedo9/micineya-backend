@@ -21,12 +21,13 @@ public class JwtService {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
 
-    public String generarToken(String email) {
+    public String generarToken(String email, int tokenVersion) {
         Date ahora = new Date();
         Date expiracion = new Date(ahora.getTime() + expirationMs);
 
         return Jwts.builder()
                 .subject(email)
+                .claim("ver", tokenVersion)
                 .issuedAt(ahora)
                 .expiration(expiracion)
                 .signWith(getKey())
@@ -42,9 +43,21 @@ public class JwtService {
                 .getSubject();
     }
 
-    public boolean esTokenValido(String token, String email) {
+    public int extraerTokenVersion(String token) {
+        Integer version = Jwts.parser()
+                .verifyWith(getKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .get("ver", Integer.class);
+        return version == null ? 0 : version;
+    }
+
+    public boolean esTokenValido(String token, String email, int tokenVersion) {
         try {
-            return extraerEmail(token).equals(email) && !estaExpirado(token);
+            return extraerEmail(token).equals(email)
+                    && extraerTokenVersion(token) == tokenVersion
+                    && !estaExpirado(token);
         } catch (Exception e) {
             return false;
         }

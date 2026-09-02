@@ -1,11 +1,27 @@
 package com.arnedo.micine.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 public class ResenaRequest {
 
+    @NotNull
     private Long tmdbId;
+
+    @Size(max = 255)
     private String titulo;
+
+    @Size(max = 255)
     private String posterPath;
+
+    @NotNull
+    @Min(1)
+    @Max(5)
     private Integer calificacion; // 1 a 5 estrellas
+
+    @Size(max = 500)
     private String comentario;
 
 

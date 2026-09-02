@@ -1,6 +1,7 @@
 package com.arnedo.micine.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "resenas")
@@ -28,6 +29,8 @@ public class Resena {
     @JoinColumn(name = "pelicula_id", nullable = false)
     private Pelicula pelicula;
 
+    private LocalDateTime fechaActualizacion;
+
     public Resena() {}
 
     public Resena(Integer calificacion, String comentario, Usuario usuario, Pelicula pelicula) {
@@ -35,6 +38,12 @@ public class Resena {
         this.comentario = comentario;
         this.usuario = usuario;
         this.pelicula = pelicula;
+    }
+
+    @PrePersist
+    @PreUpdate
+    private void actualizarFecha() {
+        this.fechaActualizacion = LocalDateTime.now();
     }
 
     // Getters y Setters
@@ -52,4 +61,7 @@ public class Resena {
 
     public Pelicula getPelicula() { return pelicula; }
     public void setPelicula(Pelicula pelicula) { this.pelicula = pelicula; }
+
+    public LocalDateTime getFechaActualizacion() { return fechaActualizacion; }
+    public void setFechaActualizacion(LocalDateTime fechaActualizacion) { this.fechaActualizacion = fechaActualizacion; }
 }

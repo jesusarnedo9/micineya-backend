@@ -22,6 +22,9 @@ public class Usuario {
     @Column(nullable = false)
     private String password;
 
+    @Column(name = "token_version")
+    private Integer tokenVersion = 0;
+
     private LocalDateTime fechaCreacion;
 
     @ManyToMany
@@ -65,6 +68,10 @@ public class Usuario {
 
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+
+    public int getTokenVersion() { return tokenVersion == null ? 0 : tokenVersion; }
+    public void setTokenVersion(Integer tokenVersion) { this.tokenVersion = tokenVersion; }
+    public void incrementarTokenVersion() { this.tokenVersion = getTokenVersion() + 1; }
 
     public LocalDateTime getFechaCreacion() { return fechaCreacion; }
 

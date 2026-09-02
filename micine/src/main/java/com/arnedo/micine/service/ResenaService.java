@@ -9,8 +9,12 @@ import com.arnedo.micine.repository.ResenaRepository;
 import com.arnedo.micine.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Comparator;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 import com.arnedo.micine.dto.ResenaResponse;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ResenaService {
@@ -25,37 +29,73 @@ public class ResenaService {
         this.peliculaRepository = peliculaRepository;
     }
 
-    public void crearResena(String email, ResenaRequest request) {
-        // 1. Buscamos al usuario que está escribiendo la reseña
+    @Transactional
+    public ResenaResponse guardarResena(String email, ResenaRequest request) {
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
-        // 2. Buscamos la película o la creamos si no existe en nuestra BD
-        Pelicula pelicula = peliculaRepository.findByTmdbId(request.getTmdbId()).orElse(null);
+        Pelicula pelicula = peliculaRepository.findByTmdbId(request.getTmdbId())
+                .orElseGet(() -> peliculaRepository.save(new Pelicula(
+                        request.getTmdbId(), limpiar(request.getTitulo()), request.getPosterPath())));
 
-        if (pelicula == null) {
-            Pelicula nuevaPeli = new Pelicula(request.getTmdbId(), request.getTitulo(), request.getPosterPath());
-            pelicula = peliculaRepository.save(nuevaPeli);
-        }
+        pelicula.setTitulo(limpiar(request.getTitulo()));
+        pelicula.setPosterPath(request.getPosterPath());
 
-        // 3. Armamos la reseña uniendo todo
-        Resena nuevaResena = new Resena(request.getCalificacion(), request.getComentario(), usuario, pelicula);
+        Resena resena = resenaRepository
+                .findFirstByUsuarioEmailAndPeliculaTmdbIdOrderByIdDesc(email, request.getTmdbId())
+                .orElseGet(() -> new Resena(
+                        request.getCalificacion(), limpiar(request.getComentario()), usuario, pelicula));
 
-        // 4. Guardamos en la base de datos
-        resenaRepository.save(nuevaResena);
+        resena.setCalificacion(request.getCalificacion());
+        resena.setComentario(limpiar(request.getComentario()));
+        resena.setPelicula(pelicula);
+        resena.setFechaActualizacion(LocalDateTime.now());
+
+        return toResponse(resenaRepository.save(resena));
     }
 
-    public List obtenerResenasPorPelicula(Long tmdbId) {
-        // 1. Buscamos todas las reseñas crudas
-        List<Resena> resenasCrudas = resenaRepository.findByPeliculaTmdbId(tmdbId);
-
-        // 2. Las convertimos a nuestro DTO limpio
-        return resenasCrudas.stream()
-                .map(r -> new ResenaResponse(
-                        r.getCalificacion(),
-                        r.getComentario(),
-                        r.getUsuario().getEmail() // Solo exponemos el email, no el usuario entero
-                ))
+    @Transactional(readOnly = true)
+    public List<ResenaResponse> obtenerResenasPorPelicula(Long tmdbId) {
+        return resenaRepository.findByPeliculaTmdbId(tmdbId).stream()
+                .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ResenaResponse> obtenerMisResenas(String email) {
+        LinkedHashMap<Long, Resena> ultimaPorPelicula = new LinkedHashMap<>();
+        List<Resena> resenas = resenaRepository.findByUsuarioEmail(email);
+        resenas.sort(Comparator
+                .comparing(
+                        Resena::getFechaActualizacion,
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(Resena::getId, Comparator.nullsLast(Comparator.reverseOrder())));
+        resenas.forEach(resena ->
+                ultimaPorPelicula.putIfAbsent(resena.getPelicula().getTmdbId(), resena));
+
+        return ultimaPorPelicula.values().stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private ResenaResponse toResponse(Resena resena) {
+        Pelicula pelicula = resena.getPelicula();
+        return new ResenaResponse(
+                resena.getId(),
+                pelicula.getTmdbId(),
+                pelicula.getTitulo(),
+                pelicula.getPosterPath(),
+                resena.getCalificacion(),
+                resena.getComentario(),
+                resena.getUsuario().getUsername(),
+                resena.getFechaActualizacion()
+        );
+    }
+
+    private String limpiar(String valor) {
+        if (valor == null) {
+            return "";
+        }
+        return valor.trim();
     }
 }

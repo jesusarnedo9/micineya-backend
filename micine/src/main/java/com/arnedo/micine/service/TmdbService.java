@@ -26,6 +26,10 @@ public class TmdbService {
     private static final int CANTIDAD_RECOMENDACIONES = 10;
     private static final int PAGINAS_CANDIDATAS = 3;
     private static final int MAX_FAVORITAS_PARA_AFINIDAD = 5;
+    private static final List<String> IDIOMAS_TRAILER_LATINO = List.of("es-MX", "es-AR");
+    private static final Set<String> PAISES_LATINOAMERICANOS = Set.of(
+            "AR", "BO", "BR", "CL", "CO", "CR", "CU", "DO", "EC", "GT",
+            "HN", "MX", "NI", "PA", "PE", "PR", "PY", "SV", "UY", "VE");
 
     private final RestTemplate restTemplate;
 
@@ -139,12 +143,20 @@ public class TmdbService {
     private void asignarVideos(List<PeliculaDto> peliculas) {
         for (PeliculaDto pelicula : peliculas) {
             try {
-                TmdbVideoResponse videosEspanol = buscarVideos(pelicula.getId(), "es-ES");
-                String key = extraerMejorVideo(videosEspanol);
+                String key = null;
+                for (String idioma : IDIOMAS_TRAILER_LATINO) {
+                    key = extraerMejorVideo(buscarVideos(pelicula.getId(), idioma));
+                    if (key != null) {
+                        break;
+                    }
+                }
 
+                // Si TMDB no tiene una versión latina, conservamos el trailer original
+                // para que la película no quede sin contenido reproducible.
                 if (key == null) {
                     key = extraerMejorVideo(buscarVideos(pelicula.getId(), null));
                 }
+
                 pelicula.setVideoKey(key);
             } catch (Exception ignored) {
                 pelicula.setVideoKey(null);
@@ -180,16 +192,33 @@ public class TmdbService {
         int puntaje;
         if (nombre.contains("tv spot") || nombre.contains("spot de tv")) {
             puntaje = 100;
-        } else if ("teaser".equals(tipo)) {
-            puntaje = 80;
         } else if ("trailer".equals(tipo)) {
-            puntaje = 60;
+            puntaje = 300;
+        } else if ("teaser".equals(tipo)) {
+            puntaje = 180;
         } else if ("clip".equals(tipo)) {
-            puntaje = 40;
+            puntaje = 60;
         } else {
             return 0;
         }
 
-        return Boolean.TRUE.equals(video.getOfficial()) ? puntaje + 10 : puntaje;
+        if (Boolean.TRUE.equals(video.getOfficial())) {
+            puntaje += 40;
+        }
+        if ("es".equalsIgnoreCase(video.getLanguageCode())) {
+            puntaje += 40;
+        }
+        if (video.getCountryCode() != null
+                && PAISES_LATINOAMERICANOS.contains(video.getCountryCode().toUpperCase(Locale.ROOT))) {
+            puntaje += 60;
+        }
+        if (nombre.contains("latino")
+                || nombre.contains("latinoamérica")
+                || nombre.contains("latinoamerica")
+                || nombre.contains("doblado")) {
+            puntaje += 90;
+        }
+
+        return puntaje;
     }
 }
