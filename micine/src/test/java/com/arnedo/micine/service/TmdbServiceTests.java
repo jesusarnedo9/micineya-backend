@@ -70,6 +70,33 @@ class TmdbServiceTests {
         assertThat(response.getResults().getFirst().getVideoKey()).isEqualTo("trailer-key");
     }
 
+    @Test
+    void recomendacionesLimitanTitulosDeUnaMismaSaga() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        TmdbService service = new TmdbService(restTemplate);
+        ReflectionTestUtils.setField(service, "apiUrl", "https://api.themoviedb.org/3");
+        ReflectionTestUtils.setField(service, "apiKey", "test");
+
+        when(restTemplate.getForObject(anyString(), eq(TmdbResponse.class)))
+                .thenReturn(respuestaConTitulos(
+                        "Alien", "Aliens", "Alien 3", "Alien: Resurrección", "Alien: Covenant",
+                        "Matrix", "Gladiador", "Titanic", "Her", "Memento", "Avatar", "Parásitos",
+                        "Whiplash"));
+        TmdbVideoResponse sinVideos = new TmdbVideoResponse();
+        sinVideos.setResults(List.of());
+        when(restTemplate.getForObject(anyString(), eq(TmdbVideoResponse.class))).thenReturn(sinVideos);
+
+        TmdbResponse response = service.getRecomendaciones(
+                new PerfilRecomendacion(Set.of(), Set.of(8), Set.of(), Set.of()));
+
+        long cantidadAlien = response.getResults().stream()
+                .map(PeliculaDto::getTitle)
+                .filter(titulo -> titulo.toLowerCase().startsWith("alien"))
+                .count();
+        assertThat(response.getResults()).hasSize(10);
+        assertThat(cantidadAlien).isLessThanOrEqualTo(2);
+    }
+
     private static TmdbVideoResponse videos(TmdbVideoDto... videos) {
         TmdbVideoResponse response = new TmdbVideoResponse();
         response.setResults(List.of(videos));
@@ -100,6 +127,17 @@ class TmdbServiceTests {
             PeliculaDto pelicula = new PeliculaDto();
             pelicula.setId(id);
             pelicula.setTitle("Película " + id);
+            peliculas.add(pelicula);
+        }
+        return new TmdbResponse(peliculas);
+    }
+
+    private static TmdbResponse respuestaConTitulos(String... titulos) {
+        List<PeliculaDto> peliculas = new ArrayList<>();
+        for (int indice = 0; indice < titulos.length; indice++) {
+            PeliculaDto pelicula = new PeliculaDto();
+            pelicula.setId((long) indice + 1);
+            pelicula.setTitle(titulos[indice]);
             peliculas.add(pelicula);
         }
         return new TmdbResponse(peliculas);

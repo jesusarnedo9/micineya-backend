@@ -14,6 +14,7 @@ import org.springframework.data.repository.query.Param;
 public interface ResenaRepository extends JpaRepository<Resena, Long> {
     List<Resena> findByPeliculaTmdbId(Long tmdbId);
     List<Resena> findByUsuarioEmail(String email);
+    List<Resena> findByUsuarioEmailAndPeliculaTmdbId(String email, Long tmdbId);
     Optional<Resena> findFirstByUsuarioEmailAndPeliculaTmdbIdOrderByIdDesc(String email, Long tmdbId);
 
     @Query("select distinct r.pelicula.tmdbId from Resena r where r.usuario.email = :email")

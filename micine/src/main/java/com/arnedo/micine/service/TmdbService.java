@@ -12,11 +12,13 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.text.Normalizer;
 import java.util.stream.Collectors;
 
 @Service
@@ -77,15 +79,64 @@ public class TmdbService {
         }
 
         Map<Long, Integer> afinidadPorFavoritas = obtenerAfinidadPorFavoritas(perfil.peliculasFavoritasIds());
-        List<PeliculaDto> elegidas = candidatas.values().stream()
+        List<PeliculaDto> ranking = candidatas.values().stream()
                 .sorted(Comparator.comparingInt(
                         (PeliculaDto pelicula) -> afinidadPorFavoritas.getOrDefault(pelicula.getId(), 0)
                 ).reversed())
-                .limit(CANTIDAD_RECOMENDACIONES)
                 .collect(Collectors.toCollection(ArrayList::new));
+        List<PeliculaDto> elegidas = diversificarSagas(ranking);
 
         asignarVideos(elegidas);
         return new TmdbResponse(elegidas);
+    }
+
+    private List<PeliculaDto> diversificarSagas(List<PeliculaDto> ranking) {
+        List<PeliculaDto> elegidas = new ArrayList<>();
+        Map<String, Integer> cantidadPorFamilia = new LinkedHashMap<>();
+        Set<Long> idsElegidos = new HashSet<>();
+
+        for (PeliculaDto pelicula : ranking) {
+            String familia = claveDeFamilia(pelicula);
+            if (cantidadPorFamilia.getOrDefault(familia, 0) >= 2) {
+                continue;
+            }
+            elegidas.add(pelicula);
+            idsElegidos.add(pelicula.getId());
+            cantidadPorFamilia.merge(familia, 1, Integer::sum);
+            if (elegidas.size() == CANTIDAD_RECOMENDACIONES) {
+                return elegidas;
+            }
+        }
+
+        // Si el catálogo es pequeño, completamos las diez aunque haya que repetir familia.
+        for (PeliculaDto pelicula : ranking) {
+            if (idsElegidos.add(pelicula.getId())) {
+                elegidas.add(pelicula);
+                if (elegidas.size() == CANTIDAD_RECOMENDACIONES) {
+                    break;
+                }
+            }
+        }
+        return elegidas;
+    }
+
+    private String claveDeFamilia(PeliculaDto pelicula) {
+        String titulo = pelicula.getTitle() == null ? "" : pelicula.getTitle();
+        String normalizado = Normalizer.normalize(titulo, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9 ]", " ")
+                .trim();
+        List<String> articulos = List.of("a", "an", "the", "el", "la", "los", "las", "un", "una");
+        String raiz = java.util.Arrays.stream(normalizado.split("\\s+"))
+                .filter(token -> !token.isBlank() && !articulos.contains(token))
+                .findFirst()
+                .orElse(String.valueOf(pelicula.getId()));
+
+        if (raiz.length() > 5 && raiz.endsWith("s")) {
+            raiz = raiz.substring(0, raiz.length() - 1);
+        }
+        return raiz;
     }
 
     private TmdbResponse buscarCandidatas(PerfilRecomendacion perfil, int pagina) {

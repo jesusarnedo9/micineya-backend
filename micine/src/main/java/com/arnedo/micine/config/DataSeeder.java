@@ -26,6 +26,10 @@ public class DataSeeder implements CommandLineRunner {
         guardarOActualizarPlataforma("Max", 1899);
         guardarOActualizarPlataforma("Disney+", 337);
         guardarOActualizarPlataforma("Prime Video", 119);
+        guardarOActualizarPlataforma("MUBI", 11);
+        guardarOActualizarPlataforma("Apple TV+", 350);
+        guardarOActualizarPlataforma("Paramount+", 531);
+        guardarOActualizarPlataforma("Crunchyroll", 283);
 
         // Si no hay géneros, los creamos (con los IDs reales de la API de TMDB)
         if (generoRepository.count() == 0) {

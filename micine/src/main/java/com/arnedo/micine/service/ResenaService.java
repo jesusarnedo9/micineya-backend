@@ -78,6 +78,15 @@ public class ResenaService {
                 .toList();
     }
 
+    @Transactional
+    public void marcarComoNoVista(String email, Long tmdbId) {
+        List<Resena> resenas = resenaRepository
+                .findByUsuarioEmailAndPeliculaTmdbId(email, tmdbId);
+        if (!resenas.isEmpty()) {
+            resenaRepository.deleteAll(resenas);
+        }
+    }
+
     private ResenaResponse toResponse(Resena resena) {
         Pelicula pelicula = resena.getPelicula();
         return new ResenaResponse(

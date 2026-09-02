@@ -36,4 +36,12 @@ public class ResenaController {
     public ResponseEntity<List<ResenaResponse>> verMisResenas(Principal principal) {
         return ResponseEntity.ok(resenaService.obtenerMisResenas(principal.getName()));
     }
+
+    @DeleteMapping("/pelicula/{tmdbId}")
+    public ResponseEntity<Void> marcarComoNoVista(
+            @PathVariable Long tmdbId,
+            Principal principal) {
+        resenaService.marcarComoNoVista(principal.getName(), tmdbId);
+        return ResponseEntity.noContent().build();
+    }
 }

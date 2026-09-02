@@ -44,6 +44,23 @@ class ResenaServiceTests {
         assertThat(propias.getFirst().id()).isEqualTo(actualizada.id());
     }
 
+    @Test
+    void marcarComoNoVistaEliminaLaResenaDelPerfil() {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String email = "deshacer_" + suffix + "@example.com";
+
+        RegistroRequest registro = new RegistroRequest();
+        registro.setUsername("deshacer_" + suffix);
+        registro.setEmail(email);
+        registro.setPassword("password-segura");
+        usuarioService.registrar(registro);
+        resenaService.guardarResena(email, resena(680L, 4, "Marcada por error"));
+
+        resenaService.marcarComoNoVista(email, 680L);
+
+        assertThat(resenaService.obtenerMisResenas(email)).isEmpty();
+    }
+
     private ResenaRequest resena(Long tmdbId, int calificacion, String comentario) {
         ResenaRequest request = new ResenaRequest();
         request.setTmdbId(tmdbId);
