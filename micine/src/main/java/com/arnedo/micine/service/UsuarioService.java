@@ -7,6 +7,7 @@ import com.arnedo.micine.dto.OnboardingStatusResponse;
 import com.arnedo.micine.dto.PerfilRecomendacion;
 import com.arnedo.micine.dto.RegistroRequest;
 import com.arnedo.micine.entity.Usuario;
+import com.arnedo.micine.exception.InvalidRefreshTokenException;
 import com.arnedo.micine.repository.UsuarioRepository;
 import com.arnedo.micine.security.JwtService;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -71,8 +72,7 @@ public class UsuarioService {
         usuario.setPassword(passwordEncoder.encode(request.getPassword()));
         usuarioRepository.save(usuario);
 
-        String token = jwtService.generarToken(usuario.getEmail(), usuario.getTokenVersion());
-        return new AuthResponse(token, usuario.getUsername());
+        return crearAuthResponse(usuario);
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -85,8 +85,36 @@ public class UsuarioService {
             throw new IllegalArgumentException("Usuario, email o contraseña incorrectos");
         }
 
-        String token = jwtService.generarToken(usuario.getEmail(), usuario.getTokenVersion());
-        return new AuthResponse(token, usuario.getUsername());
+        return crearAuthResponse(usuario);
+    }
+
+    @Transactional(readOnly = true)
+    public AuthResponse refrescarSesion(String refreshToken) {
+        try {
+            String email = jwtService.extraerEmail(refreshToken);
+            Usuario usuario = usuarioRepository.findByEmailIgnoreCase(email)
+                    .orElseThrow(InvalidRefreshTokenException::new);
+
+            if (!jwtService.esRefreshTokenValido(
+                    refreshToken,
+                    usuario.getEmail(),
+                    usuario.getTokenVersion())) {
+                throw new InvalidRefreshTokenException();
+            }
+
+            return crearAuthResponse(usuario);
+        } catch (InvalidRefreshTokenException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new InvalidRefreshTokenException();
+        }
+    }
+
+    private AuthResponse crearAuthResponse(Usuario usuario) {
+        int tokenVersion = usuario.getTokenVersion();
+        String accessToken = jwtService.generarAccessToken(usuario.getEmail(), tokenVersion);
+        String refreshToken = jwtService.generarRefreshToken(usuario.getEmail(), tokenVersion);
+        return new AuthResponse(accessToken, refreshToken, usuario.getUsername());
     }
 
     @Transactional(readOnly = true)

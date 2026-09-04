@@ -2,6 +2,7 @@ package com.arnedo.micine.controller;
 
 import com.arnedo.micine.dto.AuthResponse;
 import com.arnedo.micine.dto.LoginRequest;
+import com.arnedo.micine.dto.RefreshTokenRequest;
 import com.arnedo.micine.dto.RegistroRequest;
 import com.arnedo.micine.service.UsuarioService;
 import jakarta.validation.Valid;
@@ -28,6 +29,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(usuarioService.login(request));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(usuarioService.refrescarSesion(request.getRefreshToken()));
     }
 
     @PostMapping("/logout")

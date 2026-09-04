@@ -6,10 +6,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Service
 public class JwtService {
+
+    private static final String TOKEN_TYPE_CLAIM = "typ";
+    private static final String ACCESS_TOKEN_TYPE = "access";
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
 
     @Value("${jwt.secret}")
     private String secret;
@@ -17,17 +22,33 @@ public class JwtService {
     @Value("${jwt.expiration-ms}")
     private long expirationMs;
 
+    @Value("${jwt.refresh-expiration-ms}")
+    private long refreshExpirationMs;
+
     private SecretKey getKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes());
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     public String generarToken(String email, int tokenVersion) {
+        return generarAccessToken(email, tokenVersion);
+    }
+
+    public String generarAccessToken(String email, int tokenVersion) {
+        return generarToken(email, tokenVersion, ACCESS_TOKEN_TYPE, expirationMs);
+    }
+
+    public String generarRefreshToken(String email, int tokenVersion) {
+        return generarToken(email, tokenVersion, REFRESH_TOKEN_TYPE, refreshExpirationMs);
+    }
+
+    private String generarToken(String email, int tokenVersion, String tipo, long duracionMs) {
         Date ahora = new Date();
-        Date expiracion = new Date(ahora.getTime() + expirationMs);
+        Date expiracion = new Date(ahora.getTime() + duracionMs);
 
         return Jwts.builder()
                 .subject(email)
                 .claim("ver", tokenVersion)
+                .claim(TOKEN_TYPE_CLAIM, tipo)
                 .issuedAt(ahora)
                 .expiration(expiracion)
                 .signWith(getKey())
@@ -57,10 +78,38 @@ public class JwtService {
         try {
             return extraerEmail(token).equals(email)
                     && extraerTokenVersion(token) == tokenVersion
+                    && esAccessToken(token)
                     && !estaExpirado(token);
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public boolean esRefreshTokenValido(String token, String email, int tokenVersion) {
+        try {
+            return extraerEmail(token).equals(email)
+                    && extraerTokenVersion(token) == tokenVersion
+                    && REFRESH_TOKEN_TYPE.equals(extraerTipo(token))
+                    && !estaExpirado(token);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean esAccessToken(String token) {
+        String tipo = extraerTipo(token);
+        // Los tokens emitidos antes de esta versión no tenían tipo y siguen siendo
+        // válidos hasta su vencimiento natural.
+        return tipo == null || ACCESS_TOKEN_TYPE.equals(tipo);
+    }
+
+    private String extraerTipo(String token) {
+        return Jwts.parser()
+                .verifyWith(getKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .get(TOKEN_TYPE_CLAIM, String.class);
     }
 
     private boolean estaExpirado(String token) {

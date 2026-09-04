@@ -49,6 +49,7 @@ class UsuarioServiceLoginTests {
         AuthResponse response = usuarioService.login(login(email.toUpperCase()));
 
         assertThat(response.getToken()).isNotBlank();
+        assertThat(response.getRefreshToken()).isNotBlank();
         assertThat(response.getUsername()).isEqualTo(username);
     }
 
@@ -57,7 +58,22 @@ class UsuarioServiceLoginTests {
         AuthResponse response = usuarioService.login(login(username.toUpperCase()));
 
         assertThat(response.getToken()).isNotBlank();
+        assertThat(response.getRefreshToken()).isNotBlank();
         assertThat(response.getUsername()).isEqualTo(username);
+    }
+
+    @Test
+    void renuevaLaSesionConUnRefreshTokenValido() {
+        AuthResponse loginResponse = usuarioService.login(login(email));
+
+        AuthResponse refreshed = usuarioService.refrescarSesion(loginResponse.getRefreshToken());
+        Usuario usuario = usuarioRepository.findByEmail(email).orElseThrow();
+
+        assertThat(refreshed.getToken()).isNotBlank();
+        assertThat(refreshed.getRefreshToken()).isNotBlank();
+        assertThat(refreshed.getUsername()).isEqualTo(username);
+        assertThat(jwtService.esTokenValido(
+                refreshed.getToken(), email, usuario.getTokenVersion())).isTrue();
     }
 
     @Test
@@ -73,6 +89,8 @@ class UsuarioServiceLoginTests {
 
         assertThat(jwtService.esTokenValido(
                 response.getToken(), email, despuesDeSalir.getTokenVersion())).isFalse();
+        assertThat(jwtService.esRefreshTokenValido(
+                response.getRefreshToken(), email, despuesDeSalir.getTokenVersion())).isFalse();
     }
 
     private LoginRequest login(String identifier) {
