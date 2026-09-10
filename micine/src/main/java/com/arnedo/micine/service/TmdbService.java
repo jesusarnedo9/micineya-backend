@@ -27,6 +27,7 @@ public class TmdbService {
     private static final String REGION_ARGENTINA = "AR";
     private static final int CANTIDAD_RECOMENDACIONES = 10;
     private static final int PAGINAS_CANDIDATAS = 3;
+    private static final int MAX_PAGINAS_CANDIDATAS = 10;
     private static final int MAX_FAVORITAS_PARA_AFINIDAD = 5;
     private static final List<String> IDIOMAS_TRAILER_LATINO = List.of("es-MX", "es-AR");
     private static final Set<String> PAISES_LATINOAMERICANOS = Set.of(
@@ -61,12 +62,16 @@ public class TmdbService {
     }
 
     public TmdbResponse getRecomendaciones(PerfilRecomendacion perfil) {
+        return getRecomendaciones(perfil, Set.of());
+    }
+
+    public TmdbResponse getRecomendaciones(PerfilRecomendacion perfil, Set<Long> actualesIds) {
         if (perfil.plataformaIds().isEmpty()) {
             return new TmdbResponse(List.of());
         }
 
         Map<Long, PeliculaDto> candidatas = new LinkedHashMap<>();
-        for (int pagina = 1; pagina <= PAGINAS_CANDIDATAS; pagina++) {
+        for (int pagina = 1; pagina <= MAX_PAGINAS_CANDIDATAS; pagina++) {
             TmdbResponse response = buscarCandidatas(perfil, pagina);
             if (response == null || response.getResults() == null) {
                 continue;
@@ -75,14 +80,26 @@ public class TmdbService {
             response.getResults().stream()
                     .filter(pelicula -> pelicula.getId() != null)
                     .filter(pelicula -> !perfil.peliculasVistasIds().contains(pelicula.getId()))
+                    .filter(pelicula -> !perfil.peliculasDescartadasIds().contains(pelicula.getId()))
+                    .filter(pelicula -> !actualesIds.contains(pelicula.getId()))
                     .forEach(pelicula -> candidatas.putIfAbsent(pelicula.getId(), pelicula));
+
+            long nuevas = candidatas.keySet().stream()
+                    .filter(id -> !perfil.recomendacionesRecientesIds().contains(id)).count();
+            if ((pagina >= PAGINAS_CANDIDATAS && nuevas >= CANTIDAD_RECOMENDACIONES)
+                    || response.getResults().isEmpty()
+                    || (response.getTotalPages() != null && pagina >= response.getTotalPages())) {
+                break;
+            }
         }
 
         Map<Long, Integer> afinidadPorFavoritas = obtenerAfinidadPorFavoritas(perfil.peliculasFavoritasIds());
         List<PeliculaDto> ranking = candidatas.values().stream()
-                .sorted(Comparator.comparingInt(
+                .sorted(Comparator.comparing((PeliculaDto pelicula) ->
+                        perfil.recomendacionesRecientesIds().contains(pelicula.getId()))
+                        .thenComparing(Comparator.comparingInt(
                         (PeliculaDto pelicula) -> afinidadPorFavoritas.getOrDefault(pelicula.getId(), 0)
-                ).reversed())
+                ).reversed()))
                 .collect(Collectors.toCollection(ArrayList::new));
         List<PeliculaDto> elegidas = diversificarSagas(ranking);
 

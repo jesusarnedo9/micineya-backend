@@ -22,6 +22,47 @@ import static org.mockito.Mockito.when;
 class TmdbServiceTests {
 
     @Test
+    void renovarExcluyeElLoteActualVistasYDescartadasYBuscaMasPaginas() {
+        RestTemplate client = mock(RestTemplate.class);
+        TmdbService service = new TmdbService(client);
+        ReflectionTestUtils.setField(service, "apiUrl", "https://api.themoviedb.org/3");
+        ReflectionTestUtils.setField(service, "apiKey", "test");
+        when(client.getForObject(anyString(), eq(TmdbResponse.class))).thenAnswer(call -> {
+            String url = call.getArgument(0);
+            TmdbResponse response = url.contains("page=4")
+                    ? respuestaConIds(4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L)
+                    : respuestaConIds(1L, 2L, 3L, 90L);
+            response.setTotalPages(5);
+            return response;
+        });
+        when(client.getForObject(anyString(), eq(TmdbVideoResponse.class))).thenReturn(videos());
+        PerfilRecomendacion perfil = new PerfilRecomendacion(
+                Set.of(28), Set.of(8), Set.of(1L), Set.of(), Set.of(2L), Set.of(90L));
+
+        TmdbResponse response = service.getRecomendaciones(perfil, Set.of(3L));
+
+        assertThat(response.getResults()).hasSize(10);
+        assertThat(response.getResults()).extracting(PeliculaDto::getId)
+                .doesNotContain(1L, 2L, 3L, 90L);
+    }
+
+    @Test
+    void catalogoAgotadoNoReintroduceVistasDescartadasNiLoteActual() {
+        RestTemplate client = mock(RestTemplate.class);
+        TmdbService service = new TmdbService(client);
+        ReflectionTestUtils.setField(service, "apiUrl", "https://api.themoviedb.org/3");
+        ReflectionTestUtils.setField(service, "apiKey", "test");
+        when(client.getForObject(anyString(), eq(TmdbResponse.class)))
+                .thenReturn(respuestaConIds(1L, 2L, 3L, 4L));
+        when(client.getForObject(anyString(), eq(TmdbVideoResponse.class))).thenReturn(videos());
+
+        TmdbResponse response = service.getRecomendaciones(new PerfilRecomendacion(
+                Set.of(), Set.of(8), Set.of(1L), Set.of(), Set.of(2L), Set.of(4L)), Set.of(3L));
+
+        assertThat(response.getResults()).extracting(PeliculaDto::getId).containsExactly(4L);
+    }
+
+    @Test
     void recomendacionesFiltranVistasLimitanADiezYPriorizanAfinidad() {
         RestTemplate restTemplate = mock(RestTemplate.class);
         TmdbService service = new TmdbService(restTemplate);

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Eliminar cuenta · MiCineYa</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 32px 20px; min-height: 100vh; background: #0c080a; color: #faf5f6; font: 16px/1.55 system-ui, sans-serif; }
+    main { max-width: 540px; margin: 4vh auto; padding: clamp(24px, 5vw, 40px); border: 1px solid #422830; border-radius: 24px; background: #191114; }
+    .brand { color: #ff8c96; letter-spacing: 3px; font-size: 13px; font-weight: 800; }
+    h1 { line-height: 1.15; font-size: 32px; margin: 22px 0; }
+    p { color: #c1afb5; }
+    strong { color: #fff; }
+    label { display: block; margin: 20px 0 8px; font-size: 14px; }
+    input { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #655059; background: #251b20; color: #fff; font: inherit; }
+    input:focus { outline: 2px solid #ff8c96; outline-offset: 2px; }
+    button { width: 100%; padding: 16px; margin-top: 28px; border: 0; border-radius: 12px; background: #b81f32; color: #fff; font: 700 15px system-ui, sans-serif; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    #status { white-space: pre-line; color: #ffb1b9; margin-top: 24px; }
+    .hint { font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="brand">MICINEYA</div>
+  <h1>Eliminar tu cuenta</h1>
+  <p>Podés hacerlo desde acá aunque ya hayas desinstalado la app.</p>
+  <p>Se eliminarán tu cuenta, foto de perfil, preferencias, películas guardadas, puntuaciones, reseñas, descartes e historial de recomendaciones. <strong>Esta acción no se puede deshacer.</strong></p>
+  <form id="form">
+    <label for="identifier">Usuario o correo</label>
+    <input id="identifier" name="identifier" autocomplete="username" autocapitalize="none" required maxlength="254">
+    <label for="password">Contraseña actual</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="128">
+    <label for="confirmation">Escribí ELIMINAR para confirmar</label>
+    <input id="confirmation" name="confirmation" autocomplete="off" pattern="ELIMINAR" title="Escribí ELIMINAR en mayúsculas" required>
+    <button id="submit" type="submit">Eliminar mi cuenta definitivamente</button>
+    <p class="hint">Para conservarla, cerrá esta página sin enviar el formulario.</p>
+  </form>
+  <p id="status" role="status" aria-live="polite"></p>
+</main>
+<script>
+  const form = document.getElementById('form');
+  const status = document.getElementById('status');
+  const submit = document.getElementById('submit');
+  async function request(url, options) {
+    const response = await fetch(url, { ...options, cache: 'no-store', credentials: 'omit', signal: AbortSignal.timeout(120000) });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || 'No pudimos completar la solicitud. Revisá tus datos e intentá de nuevo.');
+    }
+    return response;
+  }
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (submit.disabled || !form.reportValidity()) return;
+    submit.disabled = true;
+    status.textContent = 'Verificando tu cuenta…';
+    const password = document.getElementById('password').value;
+    try {
+      const login = await request('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: document.getElementById('identifier').value.trim(), password }),
+      });
+      const session = await login.json();
+      if (!session.token) throw new Error('No pudimos verificar la cuenta. Intentá nuevamente.');
+      status.textContent = 'Eliminando tu cuenta…';
+      await request('/api/users/me', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.token },
+        body: JSON.stringify({ passwordActual: password }),
+      });
+      form.reset();
+      form.hidden = true;
+      status.textContent = 'Tu cuenta y sus datos se eliminaron del servicio. Ya podés cerrar esta página.';
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : 'No pudimos completar la solicitud.';
+    } finally {
+      document.getElementById('password').value = '';
+      submit.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

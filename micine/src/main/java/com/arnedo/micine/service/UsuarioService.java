@@ -27,6 +27,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.Map;
 
 @Service
 public class UsuarioService {
@@ -95,7 +98,7 @@ public class UsuarioService {
             Usuario usuario = usuarioRepository.findByEmailIgnoreCase(email)
                     .orElseThrow(InvalidRefreshTokenException::new);
 
-            if (!jwtService.esRefreshTokenValido(
+            if (!jwtService.correspondeAUsuario(refreshToken, usuario) || !jwtService.esRefreshTokenValido(
                     refreshToken,
                     usuario.getEmail(),
                     usuario.getTokenVersion())) {
@@ -112,8 +115,8 @@ public class UsuarioService {
 
     private AuthResponse crearAuthResponse(Usuario usuario) {
         int tokenVersion = usuario.getTokenVersion();
-        String accessToken = jwtService.generarAccessToken(usuario.getEmail(), tokenVersion);
-        String refreshToken = jwtService.generarRefreshToken(usuario.getEmail(), tokenVersion);
+        String accessToken = jwtService.generarAccessToken(usuario.getEmail(), tokenVersion, usuario.getId());
+        String refreshToken = jwtService.generarRefreshToken(usuario.getEmail(), tokenVersion, usuario.getId());
         return new AuthResponse(accessToken, refreshToken, usuario.getUsername());
     }
 
@@ -228,7 +231,55 @@ public class UsuarioService {
 
         Set<Long> vistasIds = resenaRepository.findPeliculasVistasTmdbIdsByUsuarioEmail(email);
 
-        return new PerfilRecomendacion(generoIds, plataformaIds, vistasIds, favoritasIds);
+        LocalDateTime ahora = LocalDateTime.now(ZoneOffset.UTC);
+        Set<Long> descartadas = usuario.getPeliculasDescartadas().entrySet().stream()
+                .filter(entry -> entry.getValue().isAfter(ahora))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+        return new PerfilRecomendacion(generoIds, plataformaIds, vistasIds, favoritasIds,
+                descartadas, Set.copyOf(usuario.getRecomendacionesRecientes().keySet()));
+    }
+
+    @Transactional
+    public void registrarRecomendaciones(String email, List<Long> ids) {
+        Usuario usuario = usuarioRepository.findByEmailForUpdate(email)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+        LocalDateTime ahora = LocalDateTime.now(ZoneOffset.UTC);
+        Map<Long, LocalDateTime> recientes = usuario.getRecomendacionesRecientes();
+        ids.forEach(id -> recientes.put(id, ahora));
+        // Historial acotado: las películas más antiguas vuelven a ser candidatas.
+        recientes.entrySet().stream()
+                .sorted(Map.Entry.<Long, LocalDateTime>comparingByValue().reversed()
+                        .thenComparing(Map.Entry.comparingByKey()))
+                .skip(50)
+                .map(Map.Entry::getKey)
+                .toList()
+                .forEach(recientes::remove);
+        usuario.getPeliculasDescartadas().entrySet().removeIf(entry -> !entry.getValue().isAfter(ahora));
+    }
+
+    @Transactional
+    public void descartarPelicula(String email, Long tmdbId) {
+        validarTmdbId(tmdbId);
+        Usuario usuario = usuarioRepository.findByEmailForUpdate(email)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+        LocalDateTime ahora = LocalDateTime.now(ZoneOffset.UTC);
+        usuario.getPeliculasDescartadas().entrySet().removeIf(entry -> !entry.getValue().isAfter(ahora));
+        usuario.getPeliculasDescartadas().put(tmdbId, ahora.plusDays(30));
+    }
+
+    @Transactional
+    public void deshacerDescarte(String email, Long tmdbId) {
+        validarTmdbId(tmdbId);
+        Usuario usuario = usuarioRepository.findByEmailForUpdate(email)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+        usuario.getPeliculasDescartadas().remove(tmdbId);
+    }
+
+    private void validarTmdbId(Long tmdbId) {
+        if (tmdbId == null || tmdbId <= 0) {
+            throw new IllegalArgumentException("La película no es válida");
+        }
     }
 
     public void agregarPeliculaFavorita(String email, PeliculaRequest request) {

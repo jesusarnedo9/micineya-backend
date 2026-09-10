@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import com.arnedo.micine.entity.Usuario;
 
 @Service
 public class JwtService {
@@ -29,25 +30,22 @@ public class JwtService {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generarToken(String email, int tokenVersion) {
-        return generarAccessToken(email, tokenVersion);
+    public String generarAccessToken(String email, int tokenVersion, Long usuarioId) {
+        return generarToken(email, tokenVersion, usuarioId, ACCESS_TOKEN_TYPE, expirationMs);
     }
 
-    public String generarAccessToken(String email, int tokenVersion) {
-        return generarToken(email, tokenVersion, ACCESS_TOKEN_TYPE, expirationMs);
+    public String generarRefreshToken(String email, int tokenVersion, Long usuarioId) {
+        return generarToken(email, tokenVersion, usuarioId, REFRESH_TOKEN_TYPE, refreshExpirationMs);
     }
 
-    public String generarRefreshToken(String email, int tokenVersion) {
-        return generarToken(email, tokenVersion, REFRESH_TOKEN_TYPE, refreshExpirationMs);
-    }
-
-    private String generarToken(String email, int tokenVersion, String tipo, long duracionMs) {
+    private String generarToken(String email, int tokenVersion, Long usuarioId, String tipo, long duracionMs) {
         Date ahora = new Date();
         Date expiracion = new Date(ahora.getTime() + duracionMs);
 
         return Jwts.builder()
                 .subject(email)
                 .claim("ver", tokenVersion)
+                .claim("uid", usuarioId)
                 .claim(TOKEN_TYPE_CLAIM, tipo)
                 .issuedAt(ahora)
                 .expiration(expiracion)
@@ -62,6 +60,16 @@ public class JwtService {
                 .parseSignedClaims(token)
                 .getPayload()
                 .getSubject();
+    }
+
+    public boolean correspondeAUsuario(String token, Usuario usuario) {
+        try {
+            Long id = Jwts.parser().verifyWith(getKey()).build().parseSignedClaims(token)
+                    .getPayload().get("uid", Long.class);
+            return id == null ? !usuario.requiereTokenConId() : id.equals(usuario.getId());
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     public int extraerTokenVersion(String token) {

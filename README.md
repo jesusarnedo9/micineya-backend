@@ -17,6 +17,8 @@ El frontend del proyecto está disponible en [micineya_frontend](https://github.
 - Invalidación de la sesión al cerrar sesión.
 - Preferencias personalizadas por plataformas de streaming y géneros.
 - Generación de diez recomendaciones disponibles por suscripción en Argentina.
+- Renovación manual del lote, priorizando opciones fuera de las últimas 50 recomendaciones de cada usuario.
+- Descartes mediante «No me interesa» durante 30 días, con posibilidad de deshacer.
 - Exclusión automática de películas ya vistas.
 - Priorización por afinidad con películas guardadas y limitación de títulos pertenecientes a una misma saga.
 - Selección de trailers de YouTube, priorizando versiones en español latino cuando TMDB las ofrece.
@@ -24,6 +26,9 @@ El frontend del proyecto está disponible en [micineya_frontend](https://github.
 - Creación y edición de puntuaciones y reseñas.
 - Posibilidad de deshacer una película marcada como vista.
 - Perfil con estadísticas, historial y contenido guardado.
+- Foto de perfil opcional, comprimida y validada (JPEG 256 × 256, hasta 64 KiB).
+- Cambio de contraseña con invalidación de las sesiones abiertas.
+- Eliminación de cuenta y datos asociados desde la app o una página del backend.
 
 ## Tecnologías
 
@@ -67,15 +72,25 @@ controller  →  service  →  repository  →  PostgreSQL
 | `GET` | `/api/catalogos/plataformas` | Consultar plataformas disponibles |
 | `GET` | `/api/catalogos/generos` | Consultar géneros disponibles |
 | `GET` | `/api/peliculas/recomendadas` | Obtener las diez recomendaciones |
+| `POST` | `/api/peliculas/recomendadas/renovar` | Pedir otro lote excluyendo sus `actualesIds` (hasta 10) |
+| `PUT` | `/api/peliculas/descartadas/{tmdbId}` | Excluir una película durante 30 días |
+| `DELETE` | `/api/peliculas/descartadas/{tmdbId}` | Deshacer el descarte |
 | `GET/POST` | `/api/users/onboarding` | Consultar o guardar preferencias |
 | `GET/POST` | `/api/users/favoritas` | Consultar o guardar películas |
 | `DELETE` | `/api/users/favoritas/{tmdbId}` | Quitar una película guardada |
 | `GET` | `/api/users/me` | Consultar el perfil del usuario |
+| `PUT` | `/api/users/me/password` | Cambiar contraseña confirmando la actual |
+| `DELETE` | `/api/users/me` | Eliminar cuenta confirmando la contraseña actual |
+| `GET/PUT/DELETE` | `/api/users/me/foto` | Consultar, actualizar o quitar la foto de perfil |
 | `POST` | `/api/resenas` | Crear o actualizar una puntuación y reseña |
 | `GET` | `/api/resenas/mias` | Consultar el historial propio |
 | `DELETE` | `/api/resenas/pelicula/{tmdbId}` | Marcar una película como no vista |
 
 Salvo registro, login y renovación, los endpoints requieren un access token en el encabezado `Authorization: Bearer <token>`.
+
+La página pública `/eliminar-cuenta.html` permite eliminar la cuenta sin instalar la app. Solicita usuario o correo, contraseña actual y confirmación explícita; reutiliza los endpoints autenticados. Estará disponible cuando se despliegue esta versión del backend.
+
+La verificación de correo y la recuperación de contraseña siguen pendientes. Los cambios de este bloque y las instrucciones de despliegue están en [la guía de cuentas y perfil](docs/releases/1.1-cuentas-perfil.md).
 
 ## Configuración local
 

@@ -15,15 +15,54 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
+import jakarta.validation.Valid;
+import com.arnedo.micine.dto.ConfirmarCuentaRequest;
+import com.arnedo.micine.dto.CambiarPasswordRequest;
+import com.arnedo.micine.dto.FotoPerfilRequest;
+import com.arnedo.micine.dto.FotoPerfilResponse;
+import com.arnedo.micine.service.CuentaService;
+import com.arnedo.micine.service.FotoPerfilService;
 
 @RestController
 @RequestMapping("/api/users")
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+    private final CuentaService cuentaService;
+    private final FotoPerfilService fotoService;
 
-    public UsuarioController(UsuarioService usuarioService) {
+    public UsuarioController(UsuarioService usuarioService, CuentaService cuentaService, FotoPerfilService fotoService) {
         this.usuarioService = usuarioService;
+        this.cuentaService = cuentaService;
+        this.fotoService = fotoService;
+    }
+
+    @PutMapping("/me/password")
+    public ResponseEntity<Void> cambiarPassword(Principal principal, @Valid @RequestBody CambiarPasswordRequest request) {
+        cuentaService.cambiarPassword(principal.getName(), request.passwordActual(), request.passwordNueva());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> eliminarCuenta(Principal principal, @Valid @RequestBody ConfirmarCuentaRequest request) {
+        cuentaService.eliminar(principal.getName(), request.passwordActual());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/me/foto")
+    public ResponseEntity<FotoPerfilResponse> obtenerFoto(Principal principal) {
+        return ResponseEntity.ok().header("Cache-Control", "no-store").body(fotoService.obtener(principal.getName()));
+    }
+
+    @PutMapping("/me/foto")
+    public ResponseEntity<FotoPerfilResponse> guardarFoto(Principal principal, @Valid @RequestBody FotoPerfilRequest request) {
+        return ResponseEntity.ok().header("Cache-Control", "no-store").body(fotoService.guardar(principal.getName(), request.base64()));
+    }
+
+    @DeleteMapping("/me/foto")
+    public ResponseEntity<Void> quitarFoto(Principal principal) {
+        fotoService.quitar(principal.getName());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/me")

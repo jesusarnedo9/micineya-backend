@@ -3,6 +3,8 @@ package com.arnedo.micine.entity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 @Entity
@@ -24,6 +26,12 @@ public class Usuario {
 
     @Column(name = "token_version")
     private Integer tokenVersion = 0;
+
+    // Las cuentas anteriores conservan null; todas las nuevas exigen su ID en el JWT.
+    @Column(name = "requiere_token_con_id")
+    private Boolean requiereTokenConId = true;
+
+    public boolean requiereTokenConId() { return Boolean.TRUE.equals(requiereTokenConId); }
 
     private LocalDateTime fechaCreacion;
 
@@ -50,6 +58,21 @@ public class Usuario {
             inverseJoinColumns = @JoinColumn(name = "pelicula_id")
     )
     private Set<Pelicula> peliculasFavoritas = new HashSet<>();
+
+    @ElementCollection
+    @CollectionTable(name = "usuario_recomendacion_reciente", joinColumns = @JoinColumn(name = "usuario_id"))
+    @MapKeyColumn(name = "tmdb_id")
+    @Column(name = "mostrada_en", nullable = false)
+    private Map<Long, LocalDateTime> recomendacionesRecientes = new HashMap<>();
+
+    @ElementCollection
+    @CollectionTable(name = "usuario_pelicula_descartada", joinColumns = @JoinColumn(name = "usuario_id"))
+    @MapKeyColumn(name = "tmdb_id")
+    @Column(name = "hasta", nullable = false)
+    private Map<Long, LocalDateTime> peliculasDescartadas = new HashMap<>();
+
+    public Map<Long, LocalDateTime> getRecomendacionesRecientes() { return recomendacionesRecientes; }
+    public Map<Long, LocalDateTime> getPeliculasDescartadas() { return peliculasDescartadas; }
 
     // Constructor vacío (obligatorio para Spring Boot)
     public Usuario() {

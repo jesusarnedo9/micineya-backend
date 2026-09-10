@@ -36,6 +36,7 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/registro",
                                 "/api/auth/refresh",
+                                "/eliminar-cuenta.html",
                                 "/api/health"
                         ).permitAll()
                         .anyRequest().authenticated()
