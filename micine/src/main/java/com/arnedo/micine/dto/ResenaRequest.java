@@ -24,6 +24,10 @@ public class ResenaRequest {
     @Size(max = 500)
     private String comentario;
 
+    private boolean spoiler;
+    public boolean isSpoiler() { return spoiler; }
+    public void setSpoiler(boolean value) { spoiler = value; }
+
 
     // Getters y Setters
     public Long getTmdbId() { return tmdbId; }

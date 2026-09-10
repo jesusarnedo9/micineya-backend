@@ -35,6 +35,14 @@ public class Usuario {
 
     private LocalDateTime fechaCreacion;
 
+    private String normasComunidadVersion;
+    private Boolean comunidadSuspendida = false;
+
+    public String getNormasComunidadVersion() { return normasComunidadVersion; }
+    public void setNormasComunidadVersion(String version) { normasComunidadVersion = version; }
+    public boolean isComunidadSuspendida() { return Boolean.TRUE.equals(comunidadSuspendida); }
+    public void setComunidadSuspendida(boolean value) { comunidadSuspendida = value; }
+
     @ManyToMany
     @JoinTable(
             name = "usuario_plataforma",

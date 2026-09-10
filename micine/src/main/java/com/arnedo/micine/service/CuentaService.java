@@ -16,13 +16,19 @@ public class CuentaService {
     private final ResenaRepository resenas;
     private final FotoPerfilRepository fotos;
     private final PasswordEncoder encoder;
+    private final com.arnedo.micine.repository.RelacionUsuarioRepository relaciones;
+    private final com.arnedo.micine.repository.ReporteComunidadRepository reportes;
 
     public CuentaService(UsuarioRepository usuarios, ResenaRepository resenas,
-                         FotoPerfilRepository fotos, PasswordEncoder encoder) {
+                         FotoPerfilRepository fotos, PasswordEncoder encoder,
+                         com.arnedo.micine.repository.RelacionUsuarioRepository relaciones,
+                         com.arnedo.micine.repository.ReporteComunidadRepository reportes) {
         this.usuarios = usuarios;
         this.resenas = resenas;
         this.fotos = fotos;
         this.encoder = encoder;
+        this.relaciones = relaciones;
+        this.reportes = reportes;
     }
 
     @Transactional
@@ -41,6 +47,8 @@ public class CuentaService {
     @Transactional
     public void eliminar(String email, String password) {
         Usuario usuario = verificarPassword(email, password);
+        relaciones.eliminarCuenta(usuario.getId());
+        reportes.eliminarCuenta(usuario.getId());
         fotos.deleteById(usuario.getId());
         resenas.deleteAll(resenas.findByUsuarioEmail(email));
         resenas.flush();

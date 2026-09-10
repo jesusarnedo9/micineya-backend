@@ -16,6 +16,13 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByEmail(String email);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from Usuario u where u.id = :id")
+    Optional<Usuario> findByIdForUpdate(Long id);
+
+    @Query("select u from Usuario u where lower(u.username) like :patron escape '!' and u.normasComunidadVersion = :version and (u.comunidadSuspendida = false or u.comunidadSuspendida is null) and u.id not in :excluidos order by lower(u.username), u.id")
+    java.util.List<Usuario> buscarPublicos(String patron, String version, java.util.Set<Long> excluidos, org.springframework.data.domain.Pageable page);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from Usuario u where u.email = :email")
     Optional<Usuario> findByEmailForUpdate(@Param("email") String email);
     Optional<Usuario> findByEmailIgnoreCase(String email);

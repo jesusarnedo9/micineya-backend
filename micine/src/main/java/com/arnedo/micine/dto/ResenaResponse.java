@@ -10,5 +10,7 @@ public record ResenaResponse(
         Integer calificacion,
         String comentario,
         String autor,
-        LocalDateTime fechaActualizacion
+        LocalDateTime fechaActualizacion,
+        boolean spoiler,
+        boolean ocultadaModeracion
 ) {}

@@ -22,16 +22,21 @@ public class ResenaService {
     private final ResenaRepository resenaRepository;
     private final UsuarioRepository usuarioRepository;
     private final PeliculaRepository peliculaRepository;
+    private final ComunidadService comunidad;
+    private final com.arnedo.micine.repository.ReporteComunidadRepository reportes;
 
-    public ResenaService(ResenaRepository resenaRepository, UsuarioRepository usuarioRepository, PeliculaRepository peliculaRepository) {
+    public ResenaService(ResenaRepository resenaRepository, UsuarioRepository usuarioRepository, PeliculaRepository peliculaRepository,
+                         ComunidadService comunidad, com.arnedo.micine.repository.ReporteComunidadRepository reportes) {
         this.resenaRepository = resenaRepository;
         this.usuarioRepository = usuarioRepository;
         this.peliculaRepository = peliculaRepository;
+        this.comunidad = comunidad;
+        this.reportes = reportes;
     }
 
     @Transactional
     public ResenaResponse guardarResena(String email, ResenaRequest request) {
-        Usuario usuario = usuarioRepository.findByEmail(email)
+        Usuario usuario = usuarioRepository.findByEmailForUpdate(email)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
         Pelicula pelicula = peliculaRepository.findByTmdbId(request.getTmdbId())
@@ -48,6 +53,7 @@ public class ResenaService {
 
         resena.setCalificacion(request.getCalificacion());
         resena.setComentario(limpiar(request.getComentario()));
+        resena.setSpoiler(request.isSpoiler());
         resena.setPelicula(pelicula);
         resena.setFechaActualizacion(LocalDateTime.now());
 
@@ -55,8 +61,10 @@ public class ResenaService {
     }
 
     @Transactional(readOnly = true)
-    public List<ResenaResponse> obtenerResenasPorPelicula(Long tmdbId) {
+    public List<ResenaResponse> obtenerResenasPorPelicula(String email, Long tmdbId) {
+        Usuario yo = usuarioRepository.findByEmail(email).orElseThrow();
         return resenaRepository.findByPeliculaTmdbId(tmdbId).stream()
+                .filter(resena -> comunidad.puedeVerResena(yo, resena))
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -80,9 +88,11 @@ public class ResenaService {
 
     @Transactional
     public void marcarComoNoVista(String email, Long tmdbId) {
+        usuarioRepository.findByEmailForUpdate(email).orElseThrow();
         List<Resena> resenas = resenaRepository
                 .findByUsuarioEmailAndPeliculaTmdbId(email, tmdbId);
         if (!resenas.isEmpty()) {
+            reportes.deleteByResenaIdIn(resenas.stream().map(Resena::getId).toList());
             resenaRepository.deleteAll(resenas);
         }
     }
@@ -97,7 +107,9 @@ public class ResenaService {
                 resena.getCalificacion(),
                 resena.getComentario(),
                 resena.getUsuario().getUsername(),
-                resena.getFechaActualizacion()
+                resena.getFechaActualizacion(),
+                resena.isSpoiler(),
+                resena.isOcultadaModeracion()
         );
     }
 

@@ -110,6 +110,7 @@ La verificación de correo y la recuperación de contraseña siguen pendientes. 
 | `DB_PASSWORD` | Contraseña de la base de datos |
 | `JWT_SECRET` | Clave aleatoria de al menos 32 bytes para firmar tokens |
 | `TMDB_API_KEY` | API key de TMDB |
+| `MODERATOR_USER_IDS` | IDs de cuentas autorizadas a revisar reportes, separados por coma. Opcional; vacío no otorga permisos |
 
 El archivo [`micine/.env.example`](./micine/.env.example) muestra los nombres esperados sin incluir credenciales reales.
 
@@ -130,7 +131,13 @@ cd micine
 mvn test
 ```
 
-La suite actual cubre el contexto de Spring, autenticación con username o correo, renovación e invalidación de tokens, reseñas y lógica de recomendaciones.
+La suite actual cubre el contexto de Spring, autenticación con username o correo, renovación e invalidación de tokens, reseñas, recomendaciones, cuentas y privacidad de Comunidad.
+
+## Próximo release: Comunidad
+
+Seguimiento por nombre de usuario, perfiles públicos dentro de la app, publicaciones de cuentas seguidas, spoilers, bloqueo en ambos sentidos y reportes con panel de moderación. Guardadas, correo, preferencias y listas de seguidores/seguidos no se exponen en perfiles públicos. La aceptación de las normas habilita la publicación del perfil y sus reseñas anteriores.
+
+Configuración, endpoints y prueba manual: [notas de Comunidad](docs/releases/1.1-comunidad.md). Este bloque todavía requiere desplegar el backend y probar el nuevo APK; la verificación de correo queda para el final del release.
 
 ## Despliegue
 

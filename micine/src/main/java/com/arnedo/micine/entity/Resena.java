@@ -19,6 +19,14 @@ public class Resena {
     @Column(length = 500)
     private String comentario;
 
+    private Boolean spoiler = false;
+    private Boolean ocultadaModeracion = false;
+
+    public boolean isSpoiler() { return Boolean.TRUE.equals(spoiler); }
+    public void setSpoiler(boolean value) { spoiler = value; }
+    public boolean isOcultadaModeracion() { return Boolean.TRUE.equals(ocultadaModeracion); }
+    public void setOcultadaModeracion(boolean value) { ocultadaModeracion = value; }
+
     // Relación: Muchas reseñas pertenecen a UN usuario
     @ManyToOne
     @JoinColumn(name = "usuario_id", nullable = false)

@@ -28,8 +28,8 @@ public class ResenaController {
     }
 
     @GetMapping("/pelicula/{tmdbId}")
-    public ResponseEntity<List<ResenaResponse>> verResenasDePelicula(@PathVariable Long tmdbId) {
-        return ResponseEntity.ok(resenaService.obtenerResenasPorPelicula(tmdbId));
+    public ResponseEntity<List<ResenaResponse>> verResenasDePelicula(@PathVariable Long tmdbId, Principal principal) {
+        return ResponseEntity.ok(resenaService.obtenerResenasPorPelicula(principal.getName(), tmdbId));
     }
 
     @GetMapping("/mias")
