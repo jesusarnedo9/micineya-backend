@@ -13,7 +13,8 @@ public final class ComunidadDtos {
     // Nunca serializar Usuario: estos DTO no contienen email, preferencias, guardadas ni red de seguidores.
     public record Persona(Long id, String username, String foto, boolean siguiendo) {}
     public record Publicacion(Long id, Long autorId, String username, Long tmdbId, String titulo,
-                              String posterPath, int calificacion, String comentario, boolean spoiler, LocalDateTime fecha) {}
+                              String posterPath, int calificacion, String comentario, boolean spoiler, LocalDateTime fecha,
+                              TipoContenido mediaType) {}
     public record Perfil(Persona persona, List<Publicacion> publicaciones, boolean hayMas, ProgresoResponse progreso) {}
     public record Pagina(List<Publicacion> publicaciones, boolean hayMas) {}
     public record Reportar(@NotNull @Positive Long usuarioId, @Positive Long resenaId, @NotNull Motivo motivo) {}

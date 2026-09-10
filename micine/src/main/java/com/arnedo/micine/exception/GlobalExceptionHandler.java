@@ -10,6 +10,11 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> manejarJsonInvalido() {
+        return ResponseEntity.badRequest().body(new ErrorResponse("Los datos enviados no son válidos", 400));
+    }
+
     @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> manejarEstado(org.springframework.web.server.ResponseStatusException ex) {
         return ResponseEntity.status(ex.getStatusCode()).body(new ErrorResponse(ex.getReason(), ex.getStatusCode().value()));

@@ -127,6 +127,7 @@ public class UsuarioService {
 
         List<com.arnedo.micine.entity.Resena> resenas = resenaRepository.findByUsuarioEmail(email);
         long conComentario = resenas.stream()
+                .filter(resena -> resena.getPelicula().getMediaType() == com.arnedo.micine.dto.TipoContenido.PELICULA)
                 .filter(resena -> resena.getComentario() != null && !resena.getComentario().isBlank())
                 .map(resena -> resena.getPelicula().getTmdbId())
                 .distinct()
@@ -136,7 +137,7 @@ public class UsuarioService {
                 usuario.getUsername(),
                 usuario.getEmail(),
                 resenaRepository.findPeliculasVistasTmdbIdsByUsuarioEmail(email).size(),
-                usuario.getPeliculasFavoritas().size(),
+                usuario.getPeliculasFavoritas().stream().filter(p -> p.getMediaType() == com.arnedo.micine.dto.TipoContenido.PELICULA).count(),
                 conComentario
         );
     }
@@ -226,6 +227,7 @@ public class UsuarioService {
         }
 
         Set<Long> favoritasIds = usuario.getPeliculasFavoritas().stream()
+                .filter(p -> p.getMediaType() == com.arnedo.micine.dto.TipoContenido.PELICULA)
                 .map(Pelicula::getTmdbId)
                 .collect(Collectors.toSet());
 
@@ -305,14 +307,17 @@ public class UsuarioService {
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
-        return usuario.getPeliculasFavoritas();
+        return usuario.getPeliculasFavoritas().stream()
+                .filter(p -> p.getMediaType() == com.arnedo.micine.dto.TipoContenido.PELICULA)
+                .collect(Collectors.toSet());
     }
 
     public void eliminarPeliculaFavorita(String email, Long tmdbId) {
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
-        usuario.getPeliculasFavoritas().removeIf(pelicula -> pelicula.getTmdbId().equals(tmdbId));
+        usuario.getPeliculasFavoritas().removeIf(pelicula -> pelicula.getTmdbId().equals(tmdbId)
+                && pelicula.getMediaType() == com.arnedo.micine.dto.TipoContenido.PELICULA);
 
         usuarioRepository.save(usuario);
     }

@@ -30,6 +30,13 @@ El frontend del proyecto está disponible en [micineya_frontend](https://github.
 - Cambio de contraseña con invalidación de las sesiones abiertas.
 - Eliminación de cuenta y datos asociados desde la app o una página del backend.
 
+## En desarrollo: series
+
+El backend incorpora catálogo de series, temporadas vistas, guardadas privadas, reseñas y pochoclos por temporada.
+Las recomendaciones y los descartes de series tienen su propio historial, separado del de películas.
+La integración del frontend también está implementada; falta desplegar y probar el flujo conjunto en el teléfono antes del nuevo APK.
+Ver [contrato y migración de biblioteca](docs/releases/series-etapa-2.md).
+
 ## Tecnologías
 
 | Área | Tecnología |

@@ -55,6 +55,7 @@ public class ResenaService {
         resena.setComentario(limpiar(request.getComentario()));
         resena.setSpoiler(request.isSpoiler());
         resena.setPelicula(pelicula);
+        resena.setFechaVista(resena.getFechaVista());
         resena.setFechaActualizacion(LocalDateTime.now());
 
         return toResponse(resenaRepository.save(resena));
@@ -65,7 +66,7 @@ public class ResenaService {
         Usuario yo = usuarioRepository.findByEmail(email).orElseThrow();
         return resenaRepository.findByPeliculaTmdbId(tmdbId).stream()
                 .filter(resena -> comunidad.puedeVerResena(yo, resena))
-                .map(this::toResponse)
+                .map(ResenaService::toResponse)
                 .collect(Collectors.toList());
     }
 
@@ -78,11 +79,11 @@ public class ResenaService {
                         Resena::getFechaActualizacion,
                         Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(Resena::getId, Comparator.nullsLast(Comparator.reverseOrder())));
-        resenas.forEach(resena ->
+        resenas.stream().filter(r -> r.getPelicula().getMediaType() == com.arnedo.micine.dto.TipoContenido.PELICULA).forEach(resena ->
                 ultimaPorPelicula.putIfAbsent(resena.getPelicula().getTmdbId(), resena));
 
         return ultimaPorPelicula.values().stream()
-                .map(this::toResponse)
+                .map(ResenaService::toResponse)
                 .toList();
     }
 
@@ -97,7 +98,7 @@ public class ResenaService {
         }
     }
 
-    private ResenaResponse toResponse(Resena resena) {
+    public static ResenaResponse toResponse(Resena resena) {
         Pelicula pelicula = resena.getPelicula();
         return new ResenaResponse(
                 resena.getId(),
@@ -109,7 +110,10 @@ public class ResenaService {
                 resena.getUsuario().getUsername(),
                 resena.getFechaActualizacion(),
                 resena.isSpoiler(),
-                resena.isOcultadaModeracion()
+                resena.isOcultadaModeracion(),
+                pelicula.getMediaType(),
+                java.util.Set.copyOf(resena.getTemporadasVistas()),
+                resena.getFechaVista()
         );
     }
 

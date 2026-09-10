@@ -12,5 +12,8 @@ public record ResenaResponse(
         String autor,
         LocalDateTime fechaActualizacion,
         boolean spoiler,
-        boolean ocultadaModeracion
+        boolean ocultadaModeracion,
+        TipoContenido mediaType,
+        java.util.Set<Integer> temporadasVistas,
+        LocalDateTime fechaVista
 ) {}

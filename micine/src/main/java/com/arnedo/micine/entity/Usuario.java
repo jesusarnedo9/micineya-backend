@@ -82,6 +82,21 @@ public class Usuario {
     public Map<Long, LocalDateTime> getRecomendacionesRecientes() { return recomendacionesRecientes; }
     public Map<Long, LocalDateTime> getPeliculasDescartadas() { return peliculasDescartadas; }
 
+    @ElementCollection
+    @CollectionTable(name = "usuario_serie_reciente", joinColumns = @JoinColumn(name = "usuario_id"))
+    @MapKeyColumn(name = "tmdb_id")
+    @Column(name = "mostrada_en", nullable = false)
+    private Map<Long, LocalDateTime> seriesRecientes = new HashMap<>();
+
+    @ElementCollection
+    @CollectionTable(name = "usuario_serie_descartada", joinColumns = @JoinColumn(name = "usuario_id"))
+    @MapKeyColumn(name = "tmdb_id")
+    @Column(name = "hasta", nullable = false)
+    private Map<Long, LocalDateTime> seriesDescartadas = new HashMap<>();
+
+    public Map<Long, LocalDateTime> getSeriesRecientes() { return seriesRecientes; }
+    public Map<Long, LocalDateTime> getSeriesDescartadas() { return seriesDescartadas; }
+
     // Constructor vacío (obligatorio para Spring Boot)
     public Usuario() {
         this.fechaCreacion = LocalDateTime.now();

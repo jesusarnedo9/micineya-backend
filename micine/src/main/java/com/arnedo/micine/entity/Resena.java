@@ -2,6 +2,8 @@ package com.arnedo.micine.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.Set;
+import java.util.HashSet;
 
 @Entity
 @Table(name = "resenas")
@@ -38,6 +40,17 @@ public class Resena {
     private Pelicula pelicula;
 
     private LocalDateTime fechaActualizacion;
+    private LocalDateTime fechaVista;
+
+    @ElementCollection
+    @CollectionTable(name = "resena_temporada_vista", joinColumns = @JoinColumn(name = "resena_id"),
+            uniqueConstraints = @UniqueConstraint(columnNames = {"resena_id", "numero"}))
+    @Column(name = "numero", nullable = false)
+    private Set<Integer> temporadasVistas = new HashSet<>();
+
+    public Set<Integer> getTemporadasVistas() { return temporadasVistas; }
+    public LocalDateTime getFechaVista() { return fechaVista == null ? fechaActualizacion : fechaVista; }
+    public void setFechaVista(LocalDateTime value) { fechaVista = value; }
 
     public Resena() {}
 
@@ -51,6 +64,7 @@ public class Resena {
     @PrePersist
     @PreUpdate
     private void actualizarFecha() {
+        if (fechaVista == null) fechaVista = fechaActualizacion == null ? LocalDateTime.now() : fechaActualizacion;
         this.fechaActualizacion = LocalDateTime.now();
     }
 

@@ -1,9 +1,10 @@
 package com.arnedo.micine.entity;
 
 import jakarta.persistence.*;
+import com.arnedo.micine.dto.TipoContenido;
 
 @Entity
-@Table(name = "peliculas")
+@Table(name = "peliculas", uniqueConstraints = @UniqueConstraint(name = "uk_contenido_tipo_tmdb", columnNames = {"media_type", "tmdb_id"}))
 public class Pelicula {
 
     @Id
@@ -11,8 +12,13 @@ public class Pelicula {
     private Long id;
 
     // El ID real de la película en la API de TMDB
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private Long tmdbId;
+
+    // Nombre de entidad/tabla conservado para no romper las FK existentes.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "media_type", nullable = false, columnDefinition = "varchar(16) default 'PELICULA'")
+    private TipoContenido mediaType = TipoContenido.PELICULA;
 
     private String titulo;
     private String posterPath;
@@ -31,6 +37,8 @@ public class Pelicula {
 
     public Long getTmdbId() { return tmdbId; }
     public void setTmdbId(Long tmdbId) { this.tmdbId = tmdbId; }
+    public TipoContenido getMediaType() { return mediaType; }
+    public void setMediaType(TipoContenido mediaType) { this.mediaType = mediaType; }
 
     public String getTitulo() { return titulo; }
     public void setTitulo(String titulo) { this.titulo = titulo; }

@@ -17,6 +17,10 @@ public class Genero {
     @Column(unique = true)
     private Integer tmdbId;
 
+    // TMDB usa otra taxonomía para TV; null significa que no hay equivalente directo.
+    // No es único: Acción y Aventura comparten la categoría de TV Action & Adventure.
+    private Integer tmdbTvId;
+
     public Genero() {}
 
     public Genero(String nombre, Integer tmdbId) {
@@ -33,4 +37,6 @@ public class Genero {
 
     public Integer getTmdbId() { return tmdbId; }
     public void setTmdbId(Integer tmdbId) { this.tmdbId = tmdbId; }
+    public Integer getTmdbTvId() { return tmdbTvId; }
+    public void setTmdbTvId(Integer tmdbTvId) { this.tmdbTvId = tmdbTvId; }
 }

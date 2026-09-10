@@ -5,6 +5,7 @@ import com.arnedo.micine.dto.PerfilRecomendacion;
 import com.arnedo.micine.dto.TmdbResponse;
 import com.arnedo.micine.dto.TmdbVideoDto;
 import com.arnedo.micine.dto.TmdbVideoResponse;
+import com.arnedo.micine.dto.TipoContenido;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -56,7 +57,7 @@ public class TmdbService {
 
         TmdbResponse response = restTemplate.getForObject(url, TmdbResponse.class);
         if (response != null && response.getResults() != null) {
-            asignarVideos(response.getResults());
+            asignarVideos(response.getResults(), TipoContenido.PELICULA);
         }
         return response == null ? new TmdbResponse(List.of()) : response;
     }
@@ -66,13 +67,19 @@ public class TmdbService {
     }
 
     public TmdbResponse getRecomendaciones(PerfilRecomendacion perfil, Set<Long> actualesIds) {
+        return getRecomendaciones(perfil, actualesIds, TipoContenido.PELICULA);
+    }
+
+    /** Todos los IDs del perfil y del lote deben pertenecer al tipo solicitado. */
+    public TmdbResponse getRecomendaciones(PerfilRecomendacion perfil, Set<Long> actualesIds,
+                                           TipoContenido tipo) {
         if (perfil.plataformaIds().isEmpty()) {
             return new TmdbResponse(List.of());
         }
 
         Map<Long, PeliculaDto> candidatas = new LinkedHashMap<>();
         for (int pagina = 1; pagina <= MAX_PAGINAS_CANDIDATAS; pagina++) {
-            TmdbResponse response = buscarCandidatas(perfil, pagina);
+            TmdbResponse response = buscarCandidatas(perfil, pagina, tipo);
             if (response == null || response.getResults() == null) {
                 continue;
             }
@@ -93,7 +100,7 @@ public class TmdbService {
             }
         }
 
-        Map<Long, Integer> afinidadPorFavoritas = obtenerAfinidadPorFavoritas(perfil.peliculasFavoritasIds());
+        Map<Long, Integer> afinidadPorFavoritas = obtenerAfinidadPorFavoritas(perfil.peliculasFavoritasIds(), tipo);
         List<PeliculaDto> ranking = candidatas.values().stream()
                 .sorted(Comparator.comparing((PeliculaDto pelicula) ->
                         perfil.recomendacionesRecientesIds().contains(pelicula.getId()))
@@ -103,7 +110,7 @@ public class TmdbService {
                 .collect(Collectors.toCollection(ArrayList::new));
         List<PeliculaDto> elegidas = diversificarSagas(ranking);
 
-        asignarVideos(elegidas);
+        asignarVideos(elegidas, tipo);
         return new TmdbResponse(elegidas);
     }
 
@@ -156,10 +163,9 @@ public class TmdbService {
         return raiz;
     }
 
-    private TmdbResponse buscarCandidatas(PerfilRecomendacion perfil, int pagina) {
-        UriComponentsBuilder url = nuevaUrl("/discover/movie")
+    private TmdbResponse buscarCandidatas(PerfilRecomendacion perfil, int pagina, TipoContenido tipo) {
+        UriComponentsBuilder url = nuevaUrl("/discover/" + tipo.getCodigo())
                 .queryParam("language", "es-ES")
-                .queryParam("region", REGION_ARGENTINA)
                 .queryParam("watch_region", REGION_ARGENTINA)
                 .queryParam("with_watch_monetization_types", "flatrate")
                 .queryParam("with_watch_providers", unirIds(perfil.plataformaIds()))
@@ -167,6 +173,13 @@ public class TmdbService {
                 .queryParam("sort_by", "popularity.desc")
                 .queryParam("vote_count.gte", 30)
                 .queryParam("page", pagina);
+
+        if (tipo == TipoContenido.PELICULA) {
+            url.queryParam("region", REGION_ARGENTINA);
+        } else {
+            url.queryParam("include_null_first_air_dates", false)
+                    .queryParam("first_air_date.lte", java.time.LocalDate.now(java.time.ZoneOffset.UTC));
+        }
 
         if (!perfil.generoIds().isEmpty()) {
             // El separador | representa OR: alcanza con coincidir con uno de los gustos.
@@ -176,11 +189,11 @@ public class TmdbService {
         return restTemplate.getForObject(url.build().encode().toUriString(), TmdbResponse.class);
     }
 
-    private Map<Long, Integer> obtenerAfinidadPorFavoritas(Set<Long> favoritasIds) {
+    private Map<Long, Integer> obtenerAfinidadPorFavoritas(Set<Long> favoritasIds, TipoContenido tipo) {
         Map<Long, Integer> afinidad = new LinkedHashMap<>();
         favoritasIds.stream().limit(MAX_FAVORITAS_PARA_AFINIDAD).forEach(tmdbId -> {
             try {
-                String url = nuevaUrl("/movie/" + tmdbId + "/recommendations")
+                String url = nuevaUrl("/" + tipo.getCodigo() + "/" + tmdbId + "/recommendations")
                         .queryParam("language", "es-ES")
                         .queryParam("page", 1)
                         .build().encode().toUriString();
@@ -208,12 +221,13 @@ public class TmdbService {
                 .queryParam("api_key", apiKey);
     }
 
-    private void asignarVideos(List<PeliculaDto> peliculas) {
+    private void asignarVideos(List<PeliculaDto> peliculas, TipoContenido tipo) {
         for (PeliculaDto pelicula : peliculas) {
+            pelicula.setMediaType(tipo);
             try {
                 String key = null;
                 for (String idioma : IDIOMAS_TRAILER_LATINO) {
-                    key = extraerMejorVideo(buscarVideos(pelicula.getId(), idioma));
+                    key = extraerMejorVideo(buscarVideos(pelicula.getId(), idioma, tipo));
                     if (key != null) {
                         break;
                     }
@@ -222,7 +236,7 @@ public class TmdbService {
                 // Si TMDB no tiene una versión latina, conservamos el trailer original
                 // para que la película no quede sin contenido reproducible.
                 if (key == null) {
-                    key = extraerMejorVideo(buscarVideos(pelicula.getId(), null));
+                    key = extraerMejorVideo(buscarVideos(pelicula.getId(), null, tipo));
                 }
 
                 pelicula.setVideoKey(key);
@@ -232,8 +246,8 @@ public class TmdbService {
         }
     }
 
-    private TmdbVideoResponse buscarVideos(Long peliculaId, String language) {
-        UriComponentsBuilder url = nuevaUrl("/movie/" + peliculaId + "/videos");
+    private TmdbVideoResponse buscarVideos(Long peliculaId, String language, TipoContenido tipo) {
+        UriComponentsBuilder url = nuevaUrl("/" + tipo.getCodigo() + "/" + peliculaId + "/videos");
         if (language != null) {
             url.queryParam("language", language);
         }
