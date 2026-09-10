@@ -14,7 +14,7 @@ public final class ComunidadDtos {
     public record Persona(Long id, String username, String foto, boolean siguiendo) {}
     public record Publicacion(Long id, Long autorId, String username, Long tmdbId, String titulo,
                               String posterPath, int calificacion, String comentario, boolean spoiler, LocalDateTime fecha) {}
-    public record Perfil(Persona persona, List<Publicacion> publicaciones, boolean hayMas) {}
+    public record Perfil(Persona persona, List<Publicacion> publicaciones, boolean hayMas, ProgresoResponse progreso) {}
     public record Pagina(List<Publicacion> publicaciones, boolean hayMas) {}
     public record Reportar(@NotNull @Positive Long usuarioId, @Positive Long resenaId, @NotNull Motivo motivo) {}
     public enum Accion { OCULTAR_RESENA, MARCAR_SPOILER, QUITAR_FOTO, SUSPENDER, DESESTIMAR }

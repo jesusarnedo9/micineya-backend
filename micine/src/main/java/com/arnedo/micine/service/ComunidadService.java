@@ -24,13 +24,15 @@ public class ComunidadService {
     private final FotoPerfilRepository fotos;
     private final ReporteComunidadRepository reportes;
     private final Set<Long> moderadores;
+    private final ProgresoService progreso;
 
     public ComunidadService(UsuarioRepository usuarios, RelacionUsuarioRepository relaciones,
                             ResenaRepository resenas, FotoPerfilRepository fotos, ReporteComunidadRepository reportes,
-                            @Value("${comunidad.moderator-user-ids:}") String moderatorIds) {
+                            @Value("${comunidad.moderator-user-ids:}") String moderatorIds, ProgresoService progreso) {
         this.usuarios = usuarios; this.relaciones = relaciones; this.resenas = resenas;
         this.fotos = fotos; this.reportes = reportes;
         this.moderadores = new HashSet<>();
+        this.progreso = progreso;
         for (String id : moderatorIds.split(",")) if (!id.isBlank()) moderadores.add(Long.parseLong(id.trim()));
     }
 
@@ -65,7 +67,7 @@ public class ComunidadService {
         Usuario yo = usuario(email);
         Usuario otro = visible(yo, id);
         Pagina publicaciones = pagina(Set.of(id), pagina);
-        return new Perfil(persona(otro, siguiendo(yo.getId()).contains(id)), publicaciones.publicaciones(), publicaciones.hayMas());
+        return new Perfil(persona(otro, siguiendo(yo.getId()).contains(id)), publicaciones.publicaciones(), publicaciones.hayMas(), progreso.paraUsuario(id));
     }
 
     public Pagina feed(String email, int pagina) {

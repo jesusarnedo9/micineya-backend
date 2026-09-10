@@ -30,11 +30,19 @@ public class UsuarioController {
     private final UsuarioService usuarioService;
     private final CuentaService cuentaService;
     private final FotoPerfilService fotoService;
+    private final com.arnedo.micine.service.ProgresoService progreso;
 
-    public UsuarioController(UsuarioService usuarioService, CuentaService cuentaService, FotoPerfilService fotoService) {
+    public UsuarioController(UsuarioService usuarioService, CuentaService cuentaService, FotoPerfilService fotoService,
+                             com.arnedo.micine.service.ProgresoService progreso) {
         this.usuarioService = usuarioService;
         this.cuentaService = cuentaService;
         this.fotoService = fotoService;
+        this.progreso = progreso;
+    }
+
+    @GetMapping("/me/progreso")
+    public com.arnedo.micine.dto.ProgresoResponse progreso(Principal principal) {
+        return progreso.propio(principal.getName());
     }
 
     @PutMapping("/me/password")

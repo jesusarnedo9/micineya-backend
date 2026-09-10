@@ -143,6 +143,8 @@ Configuración, endpoints y prueba manual: [notas de Comunidad](docs/releases/1.
 
 El repositorio incluye un `Dockerfile` multi-stage que compila la aplicación con Maven y genera una imagen basada en Java 21. El backend del MVP se encuentra desplegado en Render y utiliza PostgreSQL como base de datos.
 
+El próximo release también incorpora el [salón de pochoclos](docs/releases/1.1-pochoclos.md): progreso calculado desde las películas vistas, con un balde por cada diez y resumen público sujeto a las mismas reglas de privacidad de Comunidad.
+
 ## Autor
 
 Proyecto personal desarrollado por [Jesús Arnedo](https://github.com/jesusarnedo9) como backend del MVP full stack de MiCineYa.
