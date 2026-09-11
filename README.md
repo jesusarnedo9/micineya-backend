@@ -17,6 +17,7 @@ El frontend del proyecto está disponible en [micineya_frontend](https://github.
 - Invalidación de la sesión al cerrar sesión.
 - Preferencias personalizadas por plataformas de streaming y géneros.
 - Generación de diez recomendaciones disponibles por suscripción en Argentina.
+- Búsqueda global de películas independiente de las preferencias del usuario.
 - Plataformas disponibles por recomendación, limitadas a las elegidas por el usuario y con atribución a JustWatch.
 - Renovación manual del lote, priorizando opciones fuera de las últimas 50 recomendaciones de cada usuario.
 - Descartes mediante «No me interesa» durante 30 días, con posibilidad de deshacer.
@@ -81,6 +82,7 @@ controller  →  service  →  repository  →  PostgreSQL
 | `GET` | `/api/catalogos/plataformas` | Consultar plataformas disponibles |
 | `GET` | `/api/catalogos/generos` | Consultar géneros disponibles |
 | `GET` | `/api/peliculas/recomendadas` | Obtener las diez recomendaciones |
+| `GET` | `/api/peliculas/buscar?query=...` | Buscar películas en todo el catálogo |
 | `POST` | `/api/peliculas/recomendadas/renovar` | Pedir otro lote excluyendo sus `actualesIds` (hasta 10) |
 | `PUT` | `/api/peliculas/descartadas/{tmdbId}` | Excluir una película durante 30 días |
 | `DELETE` | `/api/peliculas/descartadas/{tmdbId}` | Deshacer el descarte |
