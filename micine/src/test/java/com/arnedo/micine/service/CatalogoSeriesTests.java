@@ -67,6 +67,10 @@ class CatalogoSeriesTests {
                     {"page":1,"total_pages":1,"results":[{"id":123,"name":"Serie de prueba",
                     "poster_path":"/serie.jpg","vote_average":8.1,"overview":"Descripción"}]}
                     """, MediaType.APPLICATION_JSON));
+        tmdb.expect(requestTo(containsString("/tv/123/watch/providers?")))
+                .andRespond(withSuccess("""
+                    {"results":{"AR":{"flatrate":[{"provider_id":8,"provider_name":"Netflix","display_priority":1}]}}}
+                    """, MediaType.APPLICATION_JSON));
         tmdb.expect(requestTo(containsString("/tv/123/videos?")))
                 .andExpect(queryParam("language", "es-MX"))
                 .andRespond(withSuccess("""
@@ -77,6 +81,7 @@ class CatalogoSeriesTests {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.results[0].id").value(123))
                 .andExpect(jsonPath("$.results[0].mediaType").value("tv"))
                 .andExpect(jsonPath("$.results[0].title").value("Serie de prueba"))
+                .andExpect(jsonPath("$.results[0].plataformas[0]").value("Netflix"))
                 .andExpect(jsonPath("$.results[0].videoKey").value("trailer-latino"));
         assertThat(progreso.propio(cuenta.email).peliculasVistas()).isEqualTo(1);
         assertThat(usuarios.getPerfilRecomendacion(cuenta.email).peliculasDescartadasIds()).containsExactly(123L);
@@ -157,6 +162,10 @@ class CatalogoSeriesTests {
             {"page":1,"total_pages":1,"results":[{"id":870001,"name":"Vista"},
             {"id":870002,"name":"Descartada"},{"id":870003,"name":"Lote anterior"},{"id":870004,"name":"Nueva"}]}
             """, MediaType.APPLICATION_JSON));
+        tmdb.expect(requestTo(containsString("/tv/870004/watch/providers?")))
+                .andRespond(withSuccess("""
+                    {"results":{"AR":{"flatrate":[{"provider_id":8,"provider_name":"Netflix","display_priority":1}]}}}
+                    """, MediaType.APPLICATION_JSON));
         tmdb.expect(requestTo(containsString("/tv/870004/videos?"))).andRespond(withSuccess("""
             {"results":[{"key":"trailer","name":"Trailer latino","type":"Trailer","site":"YouTube"}]}
             """, MediaType.APPLICATION_JSON));

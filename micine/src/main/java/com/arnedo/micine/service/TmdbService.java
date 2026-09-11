@@ -5,6 +5,7 @@ import com.arnedo.micine.dto.PerfilRecomendacion;
 import com.arnedo.micine.dto.TmdbResponse;
 import com.arnedo.micine.dto.TmdbVideoDto;
 import com.arnedo.micine.dto.TmdbVideoResponse;
+import com.arnedo.micine.dto.TmdbWatchProvidersResponse;
 import com.arnedo.micine.dto.TipoContenido;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.ConcurrentHashMap;
 import java.text.Normalizer;
 import java.util.stream.Collectors;
 
@@ -34,8 +38,10 @@ public class TmdbService {
     private static final Set<String> PAISES_LATINOAMERICANOS = Set.of(
             "AR", "BO", "BR", "CL", "CO", "CR", "CU", "DO", "EC", "GT",
             "HN", "MX", "NI", "PA", "PE", "PR", "PY", "SV", "UY", "VE");
+    private static final Duration VIGENCIA_PLATAFORMAS = Duration.ofHours(12);
 
     private final RestTemplate restTemplate;
+    private final Map<String, PlataformasCache> plataformasCache = new ConcurrentHashMap<>();
 
     @Value("${tmdb.api.key}")
     private String apiKey;
@@ -60,6 +66,32 @@ public class TmdbService {
             asignarVideos(response.getResults(), TipoContenido.PELICULA);
         }
         return response == null ? new TmdbResponse(List.of()) : response;
+    }
+
+    public TmdbResponse buscarPeliculas(String consulta) {
+        String termino = consulta == null ? "" : consulta.trim();
+        if (termino.length() < 2) {
+            return new TmdbResponse(List.of());
+        }
+
+        String url = nuevaUrl("/search/movie")
+                .queryParam("query", termino)
+                .queryParam("language", "es-ES")
+                .queryParam("region", REGION_ARGENTINA)
+                .queryParam("include_adult", false)
+                .queryParam("page", 1)
+                .build().encode().toUriString();
+
+        TmdbResponse response = restTemplate.getForObject(url, TmdbResponse.class);
+        List<PeliculaDto> resultados = response == null || response.getResults() == null
+                ? new ArrayList<>()
+                : response.getResults().stream()
+                        .filter(pelicula -> pelicula.getId() != null)
+                        .limit(12)
+                        .collect(Collectors.toCollection(ArrayList::new));
+        resultados.forEach(pelicula -> pelicula.setMediaType(TipoContenido.PELICULA));
+        asignarTodasLasPlataformas(resultados, TipoContenido.PELICULA);
+        return new TmdbResponse(resultados);
     }
 
     public TmdbResponse getRecomendaciones(PerfilRecomendacion perfil) {
@@ -110,6 +142,7 @@ public class TmdbService {
                 .collect(Collectors.toCollection(ArrayList::new));
         List<PeliculaDto> elegidas = diversificarSagas(ranking);
 
+        asignarPlataformas(elegidas, tipo, perfil.plataformaIds());
         asignarVideos(elegidas, tipo);
         return new TmdbResponse(elegidas);
     }
@@ -245,6 +278,60 @@ public class TmdbService {
             }
         }
     }
+
+    private void asignarPlataformas(List<PeliculaDto> contenidos, TipoContenido tipo,
+                                    Set<Integer> plataformasElegidas) {
+        for (PeliculaDto contenido : contenidos) {
+            contenido.setPlataformas(plataformasDe(contenido.getId(), tipo).stream()
+                    .filter(proveedor -> plataformasElegidas.contains(proveedor.id()))
+                    .sorted(Comparator.comparing(
+                            TmdbWatchProvidersResponse.Provider::prioridad,
+                            Comparator.nullsLast(Comparator.naturalOrder())))
+                    .map(TmdbWatchProvidersResponse.Provider::nombre)
+                    .filter(nombre -> nombre != null && !nombre.isBlank())
+                    .distinct()
+                    .toList());
+        }
+    }
+
+    private void asignarTodasLasPlataformas(List<PeliculaDto> contenidos, TipoContenido tipo) {
+        for (PeliculaDto contenido : contenidos) {
+            contenido.setPlataformas(plataformasDe(contenido.getId(), tipo).stream()
+                    .sorted(Comparator.comparing(
+                            TmdbWatchProvidersResponse.Provider::prioridad,
+                            Comparator.nullsLast(Comparator.naturalOrder())))
+                    .map(TmdbWatchProvidersResponse.Provider::nombre)
+                    .filter(nombre -> nombre != null && !nombre.isBlank())
+                    .distinct()
+                    .toList());
+        }
+    }
+
+    private List<TmdbWatchProvidersResponse.Provider> plataformasDe(Long contenidoId, TipoContenido tipo) {
+        if (contenidoId == null) return List.of();
+        String clave = tipo.getCodigo() + ":" + contenidoId;
+        Instant ahora = Instant.now();
+        PlataformasCache guardada = plataformasCache.get(clave);
+        if (guardada != null && guardada.hasta().isAfter(ahora)) return guardada.proveedores();
+
+        try {
+            String url = nuevaUrl("/" + tipo.getCodigo() + "/" + contenidoId + "/watch/providers")
+                    .build().encode().toUriString();
+            TmdbWatchProvidersResponse respuesta = restTemplate.getForObject(
+                    url, TmdbWatchProvidersResponse.class);
+            var region = respuesta == null || respuesta.results() == null
+                    ? null : respuesta.results().get(REGION_ARGENTINA);
+            List<TmdbWatchProvidersResponse.Provider> proveedores = region == null || region.flatrate() == null
+                    ? List.of() : List.copyOf(region.flatrate());
+            plataformasCache.put(clave, new PlataformasCache(proveedores, ahora.plus(VIGENCIA_PLATAFORMAS)));
+            return proveedores;
+        } catch (Exception ignored) {
+            // La disponibilidad agrega contexto, pero nunca debe bloquear las recomendaciones.
+            return List.of();
+        }
+    }
+
+    private record PlataformasCache(List<TmdbWatchProvidersResponse.Provider> proveedores, Instant hasta) {}
 
     private TmdbVideoResponse buscarVideos(Long peliculaId, String language, TipoContenido tipo) {
         UriComponentsBuilder url = nuevaUrl("/" + tipo.getCodigo() + "/" + peliculaId + "/videos");

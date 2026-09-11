@@ -17,6 +17,7 @@ El frontend del proyecto está disponible en [micineya_frontend](https://github.
 - Invalidación de la sesión al cerrar sesión.
 - Preferencias personalizadas por plataformas de streaming y géneros.
 - Generación de diez recomendaciones disponibles por suscripción en Argentina.
+- Plataformas disponibles por recomendación, limitadas a las elegidas por el usuario y con atribución a JustWatch.
 - Renovación manual del lote, priorizando opciones fuera de las últimas 50 recomendaciones de cada usuario.
 - Descartes mediante «No me interesa» durante 30 días, con posibilidad de deshacer.
 - Exclusión automática de películas ya vistas.
@@ -26,6 +27,7 @@ El frontend del proyecto está disponible en [micineya_frontend](https://github.
 - Creación y edición de puntuaciones y reseñas.
 - Posibilidad de deshacer una película marcada como vista.
 - Perfil con estadísticas, historial y contenido guardado.
+- Salón público con baldes e insignias por completar series seleccionadas.
 - Foto de perfil opcional, comprimida y validada (JPEG 256 × 256, hasta 64 KiB).
 - Cambio de contraseña con invalidación de las sesiones abiertas.
 - Eliminación de cuenta y datos asociados desde la app o una página del backend.
@@ -47,7 +49,7 @@ Ver [contrato y migración de biblioteca](docs/releases/series-etapa-2.md).
 | Seguridad | Spring Security, JWT y BCrypt |
 | Persistencia | Spring Data JPA / Hibernate |
 | Base de datos | PostgreSQL |
-| Integración externa | TMDB API |
+| Integración externa | TMDB API / disponibilidad de JustWatch |
 | Validaciones | Jakarta Bean Validation |
 | Pruebas | JUnit, Spring Boot Test y H2 |
 | Empaquetado | Maven y Docker |

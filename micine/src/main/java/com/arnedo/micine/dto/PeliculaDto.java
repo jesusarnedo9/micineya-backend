@@ -14,6 +14,7 @@ public class PeliculaDto {
     private TipoContenido mediaType = TipoContenido.PELICULA;
     private String overview;
     private String videoKey;
+    private List<String> plataformas = List.of();
     private Double popularity;
 
     @JsonProperty("vote_average")
@@ -27,6 +28,9 @@ public class PeliculaDto {
     @JsonProperty("poster_path")
     private String posterPath;
 
+    @JsonProperty("release_date")
+    private String releaseDate;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public TipoContenido getMediaType() { return mediaType; }
@@ -37,8 +41,14 @@ public class PeliculaDto {
     public void setOverview(String overview) { this.overview = overview; }
     public String getPosterPath() { return posterPath; }
     public void setPosterPath(String posterPath) { this.posterPath = posterPath; }
+    public String getReleaseDate() { return releaseDate; }
+    public void setReleaseDate(String releaseDate) { this.releaseDate = releaseDate; }
     public String getVideoKey() { return videoKey; }
     public void setVideoKey(String videoKey) { this.videoKey = videoKey; }
+    public List<String> getPlataformas() { return plataformas; }
+    public void setPlataformas(List<String> plataformas) {
+        this.plataformas = plataformas == null ? List.of() : List.copyOf(plataformas);
+    }
     public Double getPopularity() { return popularity; }
     public void setPopularity(Double popularity) { this.popularity = popularity; }
     public Double getVoteAverage() { return voteAverage; }

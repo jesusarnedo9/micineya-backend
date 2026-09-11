@@ -11,6 +11,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
+import java.util.Map;
+import java.util.Set;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -86,6 +88,16 @@ class ProgresoServiceTests {
         comunidad.bloquear(autor.email, visitante.id, true);
         mvc.perform(get("/api/comunidad/perfiles/" + autor.id).header("Authorization", "Bearer " + visitante.token))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void insigniasEspecialesExigenTodasLasTemporadas() {
+        var insignias = ProgresoService.insignias(Map.of(
+                1399L, Set.of(1, 2, 3, 4, 5, 6, 7, 8),
+                1396L, Set.of(1, 2, 3, 4),
+                70523L, Set.of(1, 2, 3)));
+
+        assertThat(insignias).containsExactly("SERIE_TRONOS", "SERIE_CICLO");
     }
 
     private record Cuenta(String email, Long id, String token) {}

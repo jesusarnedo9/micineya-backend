@@ -5,6 +5,7 @@ import com.arnedo.micine.dto.PerfilRecomendacion;
 import com.arnedo.micine.dto.TmdbResponse;
 import com.arnedo.micine.dto.TmdbVideoResponse;
 import com.arnedo.micine.dto.TmdbVideoDto;
+import com.arnedo.micine.dto.TmdbWatchProvidersResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
@@ -12,11 +13,15 @@ import org.springframework.web.client.RestTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class TmdbServiceTests {
@@ -136,6 +141,58 @@ class TmdbServiceTests {
                 .count();
         assertThat(response.getResults()).hasSize(10);
         assertThat(cantidadAlien).isLessThanOrEqualTo(2);
+    }
+
+    @Test
+    void recomendacionesIncluyenSoloPlataformasElegidasDisponiblesEnArgentina() {
+        RestTemplate client = mock(RestTemplate.class);
+        TmdbService service = new TmdbService(client);
+        ReflectionTestUtils.setField(service, "apiUrl", "https://api.themoviedb.org/3");
+        ReflectionTestUtils.setField(service, "apiKey", "test");
+        when(client.getForObject(anyString(), eq(TmdbResponse.class))).thenReturn(respuestaConIds(10L));
+        when(client.getForObject(anyString(), eq(TmdbVideoResponse.class))).thenReturn(videos());
+        when(client.getForObject(anyString(), eq(TmdbWatchProvidersResponse.class))).thenAnswer(call -> {
+            assertThat((String) call.getArgument(0)).contains("/movie/10/watch/providers");
+            return new TmdbWatchProvidersResponse(Map.of(
+                    "AR", new TmdbWatchProvidersResponse.Region(List.of(
+                    new TmdbWatchProvidersResponse.Provider(119, "Amazon Prime Video", 2),
+                    new TmdbWatchProvidersResponse.Provider(8, "Netflix", 1),
+                    new TmdbWatchProvidersResponse.Provider(337, "Disney Plus", 3)))));
+        });
+
+        var resultado = service.getRecomendaciones(new PerfilRecomendacion(
+                Set.of(28), Set.of(8, 119), Set.of(), Set.of()));
+        service.getRecomendaciones(new PerfilRecomendacion(
+                Set.of(28), Set.of(8, 119), Set.of(), Set.of()));
+
+        assertThat(resultado.getResults().getFirst().getPlataformas())
+                .containsExactly("Netflix", "Amazon Prime Video");
+        verify(client, times(1)).getForObject(
+                contains("/movie/10/watch/providers"), eq(TmdbWatchProvidersResponse.class));
+    }
+
+    @Test
+    void buscarPeliculasIgnoraPreferenciasYDevuelveTodasLasPlataformasArgentinas() {
+        RestTemplate client = mock(RestTemplate.class);
+        TmdbService service = new TmdbService(client);
+        ReflectionTestUtils.setField(service, "apiUrl", "https://api.themoviedb.org/3");
+        ReflectionTestUtils.setField(service, "apiKey", "test");
+        when(client.getForObject(contains("/search/movie"), eq(TmdbResponse.class)))
+                .thenReturn(respuestaConIds(10L));
+        when(client.getForObject(contains("/movie/10/watch/providers"), eq(TmdbWatchProvidersResponse.class)))
+                .thenReturn(new TmdbWatchProvidersResponse(Map.of(
+                        "AR", new TmdbWatchProvidersResponse.Region(List.of(
+                        new TmdbWatchProvidersResponse.Provider(8, "Netflix", 1),
+                        new TmdbWatchProvidersResponse.Provider(337, "Disney Plus", 2))))));
+
+        TmdbResponse resultado = service.buscarPeliculas("Alien");
+
+        assertThat(resultado.getResults()).hasSize(1);
+        assertThat(resultado.getResults().getFirst().getMediaType())
+                .isEqualTo(com.arnedo.micine.dto.TipoContenido.PELICULA);
+        assertThat(resultado.getResults().getFirst().getPlataformas())
+                .containsExactly("Netflix", "Disney Plus");
+        verify(client).getForObject(contains("query=Alien"), eq(TmdbResponse.class));
     }
 
     private static TmdbVideoResponse videos(TmdbVideoDto... videos) {

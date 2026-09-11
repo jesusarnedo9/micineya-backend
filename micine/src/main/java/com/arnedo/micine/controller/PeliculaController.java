@@ -36,6 +36,12 @@ public class PeliculaController {
     public TmdbResponse getPopulares(@RequestParam(defaultValue = "1") int page) {
         return tmdbService.obtenerPeliculasPopulares(page);
     }
+
+    @GetMapping("/buscar")
+    public TmdbResponse buscar(@RequestParam(defaultValue = "") String query) {
+        return tmdbService.buscarPeliculas(query);
+    }
+
     @GetMapping("/recomendadas")
     public ResponseEntity<TmdbResponse> getRecomendadas(Principal principal) {
         return recomendar(principal, Set.of());
