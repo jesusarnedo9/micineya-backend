@@ -30,6 +30,11 @@ public class SerieController {
         return catalogo.recomendar(principal.getName(), java.util.Set.of(), true);
     }
 
+    @GetMapping("/buscar")
+    public com.arnedo.micine.dto.TmdbResponse buscar(@RequestParam(defaultValue = "") String query) {
+        return catalogo.buscar(query);
+    }
+
     @PostMapping("/recomendadas/renovar")
     public CatalogoSeriesResponse renovar(Principal principal,
             @jakarta.validation.Valid @RequestBody com.arnedo.micine.dto.RenovarRecomendacionesRequest request) {

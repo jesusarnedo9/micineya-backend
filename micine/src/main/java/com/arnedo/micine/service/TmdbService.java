@@ -69,12 +69,20 @@ public class TmdbService {
     }
 
     public TmdbResponse buscarPeliculas(String consulta) {
+        return buscarContenidos(consulta, TipoContenido.PELICULA);
+    }
+
+    public TmdbResponse buscarSeries(String consulta) {
+        return buscarContenidos(consulta, TipoContenido.SERIE);
+    }
+
+    private TmdbResponse buscarContenidos(String consulta, TipoContenido tipo) {
         String termino = consulta == null ? "" : consulta.trim();
         if (termino.length() < 2) {
             return new TmdbResponse(List.of());
         }
 
-        String url = nuevaUrl("/search/movie")
+        String url = nuevaUrl("/search/" + tipo.getCodigo())
                 .queryParam("query", termino)
                 .queryParam("language", "es-ES")
                 .queryParam("region", REGION_ARGENTINA)
@@ -87,10 +95,10 @@ public class TmdbService {
                 ? new ArrayList<>()
                 : response.getResults().stream()
                         .filter(pelicula -> pelicula.getId() != null)
-                        .limit(12)
+                        .limit(8)
                         .collect(Collectors.toCollection(ArrayList::new));
-        resultados.forEach(pelicula -> pelicula.setMediaType(TipoContenido.PELICULA));
-        asignarTodasLasPlataformas(resultados, TipoContenido.PELICULA);
+        resultados.forEach(contenido -> contenido.setMediaType(tipo));
+        asignarTodasLasPlataformas(resultados, tipo);
         return new TmdbResponse(resultados);
     }
 

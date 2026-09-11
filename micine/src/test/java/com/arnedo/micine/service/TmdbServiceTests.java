@@ -195,6 +195,25 @@ class TmdbServiceTests {
         verify(client).getForObject(contains("query=Alien"), eq(TmdbResponse.class));
     }
 
+    @Test
+    void buscarSeriesDevuelveComoMaximoOchoCoincidencias() {
+        RestTemplate client = mock(RestTemplate.class);
+        TmdbService service = new TmdbService(client);
+        ReflectionTestUtils.setField(service, "apiUrl", "https://api.themoviedb.org/3");
+        ReflectionTestUtils.setField(service, "apiKey", "test");
+        when(client.getForObject(contains("/search/tv"), eq(TmdbResponse.class)))
+                .thenReturn(respuestaConIds(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L));
+        when(client.getForObject(anyString(), eq(TmdbWatchProvidersResponse.class)))
+                .thenReturn(new TmdbWatchProvidersResponse(Map.of()));
+
+        TmdbResponse resultado = service.buscarSeries("Dark");
+
+        assertThat(resultado.getResults()).hasSize(8);
+        assertThat(resultado.getResults()).allMatch(
+                contenido -> contenido.getMediaType() == com.arnedo.micine.dto.TipoContenido.SERIE);
+        verify(client).getForObject(contains("query=Dark"), eq(TmdbResponse.class));
+    }
+
     private static TmdbVideoResponse videos(TmdbVideoDto... videos) {
         TmdbVideoResponse response = new TmdbVideoResponse();
         response.setResults(List.of(videos));

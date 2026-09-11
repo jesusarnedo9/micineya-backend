@@ -3,6 +3,7 @@ package com.arnedo.micine.service;
 import com.arnedo.micine.dto.CatalogoSeriesResponse;
 import com.arnedo.micine.dto.PerfilRecomendacion;
 import com.arnedo.micine.dto.TipoContenido;
+import com.arnedo.micine.dto.TmdbResponse;
 import com.arnedo.micine.entity.Genero;
 import com.arnedo.micine.entity.Plataforma;
 import com.arnedo.micine.repository.UsuarioRepository;
@@ -39,6 +40,15 @@ public class CatalogoSeriesService {
 
     public CatalogoSeriesResponse consultar(String email) {
         return recomendar(email, Set.of(), false);
+    }
+
+    public TmdbResponse buscar(String query) {
+        try {
+            return tmdb.buscarSeries(query);
+        } catch (RestClientException ex) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "No pudimos buscar series. Probá de nuevo en un momento");
+        }
     }
 
     public CatalogoSeriesResponse recomendar(String email, Set<Long> actualesIds, boolean registrar) {

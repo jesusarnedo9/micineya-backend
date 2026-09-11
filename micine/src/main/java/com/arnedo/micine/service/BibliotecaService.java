@@ -103,6 +103,8 @@ public class BibliotecaService {
         var contenido = contenidos.obtenerOCrear(request.mediaType(), request.tmdbId(), titulo, poster);
         return escritura.execute(status -> {
             var usuario = usuarios.findByEmailForUpdate(email).orElseThrow();
+            usuario.getPeliculasFavoritas().removeIf(p -> p.getMediaType() == request.mediaType()
+                    && p.getTmdbId().equals(request.tmdbId()));
             var anterioresBloqueadas = buscar(email, request.mediaType(), request.tmdbId());
             var resena = anterioresBloqueadas.stream().findFirst()
                     .orElseGet(() -> new Resena(request.calificacion(), "", usuario, peliculas.getReferenceById(contenido.getId())));

@@ -29,6 +29,7 @@ public class PeliculaDto {
     private String posterPath;
 
     @JsonProperty("release_date")
+    @JsonAlias("first_air_date")
     private String releaseDate;
 
     public Long getId() { return id; }

@@ -89,6 +89,19 @@ class BibliotecaSeriesTests {
     }
 
     @Test
+    void marcarComoVistaQuitaLaPeliculaDeGuardadas() {
+        var cuenta = crear(); long id = IDS.incrementAndGet();
+        biblioteca.guardar(cuenta.email,
+                new BibliotecaDtos.Guardar(TipoContenido.PELICULA, id, "Guardada", null));
+        assertThat(biblioteca.favoritas(cuenta.email)).hasSize(1);
+
+        biblioteca.resenar(cuenta.email, new BibliotecaDtos.Resenar(
+                TipoContenido.PELICULA, id, "Guardada", null, 4, "Vista", false, Set.of()));
+
+        assertThat(biblioteca.favoritas(cuenta.email)).isEmpty();
+    }
+
+    @Test
     void completarDiezTemporadasLlenaUnBaldeYDesmarcarLoAjusta() {
         var cuenta = crear(); long id = IDS.incrementAndGet();
         var diez = java.util.stream.IntStream.rangeClosed(1, 10).boxed().collect(java.util.stream.Collectors.toSet());
