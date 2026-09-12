@@ -42,6 +42,10 @@ public class Resena {
     private LocalDateTime fechaActualizacion;
     private LocalDateTime fechaVista;
 
+    // En películas queda null. En series identifica la temporada puntuada por esta reseña.
+    // Es nullable para poder migrar sin perder las reseñas de series creadas antes de esta versión.
+    private Integer numeroTemporada;
+
     @ElementCollection
     @CollectionTable(name = "resena_temporada_vista", joinColumns = @JoinColumn(name = "resena_id"),
             uniqueConstraints = @UniqueConstraint(columnNames = {"resena_id", "numero"}))
@@ -49,6 +53,8 @@ public class Resena {
     private Set<Integer> temporadasVistas = new HashSet<>();
 
     public Set<Integer> getTemporadasVistas() { return temporadasVistas; }
+    public Integer getNumeroTemporada() { return numeroTemporada; }
+    public void setNumeroTemporada(Integer value) { numeroTemporada = value; }
     public LocalDateTime getFechaVista() { return fechaVista == null ? fechaActualizacion : fechaVista; }
     public void setFechaVista(LocalDateTime value) { fechaVista = value; }
 

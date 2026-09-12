@@ -95,11 +95,22 @@ public class TmdbService {
                 ? new ArrayList<>()
                 : response.getResults().stream()
                         .filter(pelicula -> pelicula.getId() != null)
-                        .limit(8)
+                        .limit(5)
                         .collect(Collectors.toCollection(ArrayList::new));
         resultados.forEach(contenido -> contenido.setMediaType(tipo));
-        asignarTodasLasPlataformas(resultados, tipo);
         return new TmdbResponse(resultados);
+    }
+
+    public List<String> obtenerPlataformas(Long contenidoId, TipoContenido tipo) {
+        tipo.clave(contenidoId);
+        return plataformasDe(contenidoId, tipo).stream()
+                .sorted(Comparator.comparing(
+                        TmdbWatchProvidersResponse.Provider::prioridad,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(TmdbWatchProvidersResponse.Provider::nombre)
+                .filter(nombre -> nombre != null && !nombre.isBlank())
+                .distinct()
+                .toList();
     }
 
     public TmdbResponse getRecomendaciones(PerfilRecomendacion perfil) {
@@ -292,19 +303,6 @@ public class TmdbService {
         for (PeliculaDto contenido : contenidos) {
             contenido.setPlataformas(plataformasDe(contenido.getId(), tipo).stream()
                     .filter(proveedor -> plataformasElegidas.contains(proveedor.id()))
-                    .sorted(Comparator.comparing(
-                            TmdbWatchProvidersResponse.Provider::prioridad,
-                            Comparator.nullsLast(Comparator.naturalOrder())))
-                    .map(TmdbWatchProvidersResponse.Provider::nombre)
-                    .filter(nombre -> nombre != null && !nombre.isBlank())
-                    .distinct()
-                    .toList());
-        }
-    }
-
-    private void asignarTodasLasPlataformas(List<PeliculaDto> contenidos, TipoContenido tipo) {
-        for (PeliculaDto contenido : contenidos) {
-            contenido.setPlataformas(plataformasDe(contenido.getId(), tipo).stream()
                     .sorted(Comparator.comparing(
                             TmdbWatchProvidersResponse.Provider::prioridad,
                             Comparator.nullsLast(Comparator.naturalOrder())))

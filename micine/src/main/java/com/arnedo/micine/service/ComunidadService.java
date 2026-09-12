@@ -215,7 +215,7 @@ public class ComunidadService {
     private String foto(Long id) { return fotos.findById(id).map(f -> "data:image/jpeg;base64," + f.getBase64()).orElse(null); }
     private Publicacion publicacion(Resena r) {
         return new Publicacion(r.getId(), r.getUsuario().getId(), r.getUsuario().getUsername(), r.getPelicula().getTmdbId(),
-                r.getPelicula().getTitulo(), r.getPelicula().getPosterPath(), r.getCalificacion(), r.getComentario(), r.isSpoiler(), r.getFechaActualizacion(), r.getPelicula().getMediaType());
+                r.getPelicula().getTitulo(), r.getPelicula().getPosterPath(), r.getCalificacion(), r.getComentario(), r.isSpoiler(), r.getFechaActualizacion(), r.getPelicula().getMediaType(), r.getNumeroTemporada());
     }
     private static ResponseStatusException noDisponible() { return new ResponseStatusException(HttpStatus.NOT_FOUND, "Este perfil o contenido no está disponible"); }
 }

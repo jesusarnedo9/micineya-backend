@@ -44,7 +44,7 @@ class BibliotecaSeriesTests {
     MockRestServiceServer tmdb;
     org.springframework.http.client.ClientHttpRequestFactory original;
 
-    @BeforeEach void setup() { original = http.getRequestFactory(); tmdb = MockRestServiceServer.bindTo(http).build(); }
+    @BeforeEach void setup() { original = http.getRequestFactory(); tmdb = MockRestServiceServer.bindTo(http).ignoreExpectOrder(true).build(); }
     @AfterEach void cleanup() { try { tmdb.verify(); } finally { http.setRequestFactory(original); } }
 
     @Test
@@ -72,15 +72,20 @@ class BibliotecaSeriesTests {
     @Test
     void cadaTemporadaCuentaUnaVezEditarYDeshacerNoDuplicanPochoclos() {
         var cuenta = crear(); long id = IDS.incrementAndGet();
-        prepararTemporadas(id, 1, 2);
-        var primera = biblioteca.resenar(cuenta.email, resena(id, Set.of(1, 2), "Primera"));
-        var editada = biblioteca.resenar(cuenta.email, resena(id, Set.of(1, 2), "Editada"));
+        prepararTemporadas(id, 1);
+        prepararTemporadas(id, 2);
+        var primera = biblioteca.resenar(cuenta.email, resena(id, Set.of(1), "Primera"));
+        var editada = biblioteca.resenar(cuenta.email, resena(id, Set.of(1), "Editada"));
         assertThat(editada.id()).isEqualTo(primera.id());
         assertThat(editada.fechaVista()).isEqualTo(primera.fechaVista());
+        var segunda = biblioteca.resenar(cuenta.email, resena(id, Set.of(2), "Segunda"));
+        assertThat(segunda.id()).isNotEqualTo(primera.id());
+        assertThat(biblioteca.mias(cuenta.email)).extracting(ResenaResponse::numeroTemporada)
+                .containsExactlyInAnyOrder(1, 2);
         var p = progreso.propio(cuenta.email);
         assertThat(p.peliculasVistas()).isZero(); assertThat(p.seriesVistas()).isEqualTo(1);
         assertThat(p.temporadasVistas()).isEqualTo(2); assertThat(p.totalPochoclos()).isEqualTo(2);
-        biblioteca.resenar(cuenta.email, resena(id, Set.of(2), "Solo T2"));
+        biblioteca.marcarTemporadaNoVista(cuenta.email, id, 1);
         assertThat(progreso.propio(cuenta.email).totalPochoclos()).isEqualTo(1);
         biblioteca.marcarNoVista(cuenta.email, TipoContenido.SERIE, id);
         biblioteca.marcarNoVista(cuenta.email, TipoContenido.SERIE, id);
@@ -104,15 +109,19 @@ class BibliotecaSeriesTests {
     @Test
     void completarDiezTemporadasLlenaUnBaldeYDesmarcarLoAjusta() {
         var cuenta = crear(); long id = IDS.incrementAndGet();
-        var diez = java.util.stream.IntStream.rangeClosed(1, 10).boxed().collect(java.util.stream.Collectors.toSet());
-        prepararTemporadas(id, diez.stream().mapToInt(Integer::intValue).toArray());
-        biblioteca.resenar(cuenta.email, resena(id, diez, "Diez temporadas"));
+        for (int numero = 1; numero <= 10; numero++) prepararTemporadas(id, numero);
+        biblioteca.resenar(cuenta.email, resena(id, Set.of(1), "Temporada 1"));
+        biblioteca.guardar(cuenta.email, new BibliotecaDtos.Guardar(TipoContenido.SERIE, id, "Serie", null));
+        for (int numero = 2; numero <= 10; numero++) {
+            biblioteca.resenar(cuenta.email, resena(id, Set.of(numero), "Temporada " + numero));
+        }
         assertThat(progreso.propio(cuenta.email).baldesCompletos()).isEqualTo(1);
         assertThat(progreso.propio(cuenta.email).pochoclosEnBalde()).isZero();
-        var nueve = new HashSet<>(diez); nueve.remove(10);
-        biblioteca.resenar(cuenta.email, resena(id, nueve, "Nueve temporadas"));
+        assertThat(biblioteca.favoritas(cuenta.email)).isEmpty();
+        biblioteca.marcarTemporadaNoVista(cuenta.email, id, 10);
         assertThat(progreso.propio(cuenta.email).baldesCompletos()).isZero();
         assertThat(progreso.propio(cuenta.email).pochoclosEnBalde()).isEqualTo(9);
+        assertThat(biblioteca.favoritas(cuenta.email)).hasSize(1);
     }
 
     @Test
@@ -137,6 +146,7 @@ class BibliotecaSeriesTests {
         for (String json : List.of(
                 "{\"mediaType\":\"desconocido\",\"tmdbId\":1}",
                 "{\"mediaType\":\"tv\",\"tmdbId\":1,\"calificacion\":4,\"temporadasVistas\":[]}",
+                "{\"mediaType\":\"tv\",\"tmdbId\":1,\"calificacion\":4,\"temporadasVistas\":[1,2]}",
                 "{\"mediaType\":\"tv\",\"tmdbId\":1,\"calificacion\":4,\"temporadasVistas\":[0]}",
                 "{\"mediaType\":\"movie\",\"tmdbId\":1,\"calificacion\":4,\"temporadasVistas\":[1]}",
                 "{\"mediaType\":\"tv\",\"tmdbId\":1,\"calificacion\":6,\"temporadasVistas\":[1]}")) {
@@ -170,6 +180,7 @@ class BibliotecaSeriesTests {
         comunidad.aceptar(autor.email, ComunidadService.VERSION_NORMAS);
         mvc.perform(get("/api/comunidad/perfiles/" + autor.id).header("Authorization", "Bearer " + lector.token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.publicaciones[0].mediaType").value("tv"))
+                .andExpect(jsonPath("$.publicaciones[0].numeroTemporada").value(1))
                 .andExpect(jsonPath("$.progreso.temporadasVistas").value(1))
                 .andExpect(jsonPath("$.favoritas").doesNotExist());
         comunidad.bloquear(autor.email, lector.id, true);

@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -172,7 +173,7 @@ class TmdbServiceTests {
     }
 
     @Test
-    void buscarPeliculasIgnoraPreferenciasYDevuelveTodasLasPlataformasArgentinas() {
+    void buscarPeliculasDevuelveCoincidenciasAntesDeConsultarPlataformas() {
         RestTemplate client = mock(RestTemplate.class);
         TmdbService service = new TmdbService(client);
         ReflectionTestUtils.setField(service, "apiUrl", "https://api.themoviedb.org/3");
@@ -190,28 +191,30 @@ class TmdbServiceTests {
         assertThat(resultado.getResults()).hasSize(1);
         assertThat(resultado.getResults().getFirst().getMediaType())
                 .isEqualTo(com.arnedo.micine.dto.TipoContenido.PELICULA);
-        assertThat(resultado.getResults().getFirst().getPlataformas())
-                .containsExactly("Netflix", "Disney Plus");
+        assertThat(resultado.getResults().getFirst().getPlataformas()).isEmpty();
         verify(client).getForObject(contains("query=Alien"), eq(TmdbResponse.class));
+        verify(client, never()).getForObject(
+                contains("/movie/10/watch/providers"), eq(TmdbWatchProvidersResponse.class));
+
+        assertThat(service.obtenerPlataformas(10L, com.arnedo.micine.dto.TipoContenido.PELICULA))
+                .containsExactly("Netflix", "Disney Plus");
     }
 
     @Test
-    void buscarSeriesDevuelveComoMaximoOchoCoincidencias() {
+    void buscarSeriesDevuelveComoMaximoCincoCoincidencias() {
         RestTemplate client = mock(RestTemplate.class);
         TmdbService service = new TmdbService(client);
         ReflectionTestUtils.setField(service, "apiUrl", "https://api.themoviedb.org/3");
         ReflectionTestUtils.setField(service, "apiKey", "test");
         when(client.getForObject(contains("/search/tv"), eq(TmdbResponse.class)))
                 .thenReturn(respuestaConIds(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L));
-        when(client.getForObject(anyString(), eq(TmdbWatchProvidersResponse.class)))
-                .thenReturn(new TmdbWatchProvidersResponse(Map.of()));
-
         TmdbResponse resultado = service.buscarSeries("Dark");
 
-        assertThat(resultado.getResults()).hasSize(8);
+        assertThat(resultado.getResults()).hasSize(5);
         assertThat(resultado.getResults()).allMatch(
                 contenido -> contenido.getMediaType() == com.arnedo.micine.dto.TipoContenido.SERIE);
         verify(client).getForObject(contains("query=Dark"), eq(TmdbResponse.class));
+        verify(client, never()).getForObject(anyString(), eq(TmdbWatchProvidersResponse.class));
     }
 
     private static TmdbVideoResponse videos(TmdbVideoDto... videos) {

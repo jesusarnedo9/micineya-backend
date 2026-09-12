@@ -39,13 +39,20 @@ public class ProgresoService {
         long total = vistas + temporadas;
         return new ProgresoResponse(id, vistas, 10, total / 10, (int) (total % 10), total / 10 + 1,
                 series.values().stream().filter(s -> !s.isEmpty()).count(), temporadas, total,
-                insignias(seriesPorTmdb));
+                insignias(seriesPorTmdb), titulo(total / 10));
     }
 
     public static ProgresoResponse calcular(Long id, long vistas) {
         if (vistas < 0) throw new IllegalArgumentException("El progreso no puede ser negativo");
         return new ProgresoResponse(id, vistas, 10, vistas / 10, (int) (vistas % 10), vistas / 10 + 1,
-                0, 0, vistas, java.util.List.of());
+                0, 0, vistas, java.util.List.of(), titulo(vistas / 10));
+    }
+
+    static String titulo(long baldes) {
+        if (baldes >= 10) return "Maestro del Cine";
+        if (baldes >= 5) return "Comprometido con el cine";
+        if (baldes >= 3) return "Cineasta entusiasta";
+        return null;
     }
 
     static java.util.List<String> insignias(java.util.Map<Long, java.util.Set<Integer>> seriesPorTmdb) {

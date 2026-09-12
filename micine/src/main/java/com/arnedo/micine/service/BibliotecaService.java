@@ -64,14 +64,14 @@ public class BibliotecaService {
 
     public List<ResenaResponse> mias(String email) {
         return lectura.execute(status -> {
-            // Una tarjeta por contenido, conservando compatibilidad con duplicados históricos de películas.
-            var ultimas = new LinkedHashMap<Long, Resena>();
+            // Películas: una tarjeta por contenido. Series: una tarjeta y reseña por temporada.
+            var ultimas = new LinkedHashMap<String, Resena>();
             resenas.findByUsuarioEmail(email).stream().sorted(Comparator.comparing(Resena::getId).reversed())
-                    .forEach(r -> ultimas.putIfAbsent(r.getPelicula().getId(), r));
+                    .forEach(r -> ultimas.putIfAbsent(claveResena(r), r));
             return ultimas.values().stream().sorted(Comparator
                             .comparing(Resena::getFechaVista, Comparator.nullsLast(Comparator.reverseOrder()))
                             .thenComparing(Resena::getId, Comparator.reverseOrder()))
-                    .map(ResenaService::toResponse).toList();
+                    .flatMap(r -> respuestasCompatibles(r).stream()).toList();
         });
     }
 
@@ -84,40 +84,69 @@ public class BibliotecaService {
                 || seleccion.stream().anyMatch(n -> n == null || n <= 0)) {
             throw new IllegalArgumentException("La reseña o sus temporadas no son válidas");
         }
-        if (request.mediaType() == TipoContenido.SERIE && seleccion.isEmpty()) {
-            throw new IllegalArgumentException("Elegí al menos una temporada completa o marcá la serie como no vista");
+        if (request.mediaType() == TipoContenido.SERIE && seleccion.size() != 1) {
+            throw new IllegalArgumentException("Elegí una temporada completa para puntuarla");
         }
         if (request.mediaType() == TipoContenido.PELICULA && !seleccion.isEmpty()) {
             throw new IllegalArgumentException("Las películas no tienen temporadas");
         }
         var anteriores = Objects.requireNonNull(lectura.execute(status -> buscar(email, request.mediaType(), request.tmdbId())
-                .stream().findFirst().map(r -> Set.copyOf(r.getTemporadasVistas())).orElse(Set.of())));
+                .stream().flatMap(r -> r.getTemporadasVistas().stream()).collect(java.util.stream.Collectors.toSet())));
         var nuevas = new HashSet<>(seleccion); nuevas.removeAll(anteriores);
         String titulo = request.titulo(); String poster = request.posterPath();
+        TemporadasSerieResponse catalogo = null;
         // Solo verificar las temporadas agregadas. Editar el texto o quitar una temporada no depende de TMDB.
         // Ninguna consulta HTTP se hace mientras se mantiene el bloqueo de la cuenta.
         if (request.mediaType() == TipoContenido.SERIE && !nuevas.isEmpty()) {
-            var serie = temporadas.validarParaRegistro(request.tmdbId(), nuevas);
-            titulo = serie.titulo(); poster = serie.posterPath();
+            catalogo = temporadas.validarParaRegistro(request.tmdbId(), nuevas);
+            titulo = catalogo.titulo(); poster = catalogo.posterPath();
         }
+        var requeridas = catalogo == null ? Set.<Integer>of() : temporadasEstrenadas(catalogo);
         var contenido = contenidos.obtenerOCrear(request.mediaType(), request.tmdbId(), titulo, poster);
         return escritura.execute(status -> {
             var usuario = usuarios.findByEmailForUpdate(email).orElseThrow();
-            usuario.getPeliculasFavoritas().removeIf(p -> p.getMediaType() == request.mediaType()
-                    && p.getTmdbId().equals(request.tmdbId()));
             var anterioresBloqueadas = buscar(email, request.mediaType(), request.tmdbId());
-            var resena = anterioresBloqueadas.stream().findFirst()
+            if (request.mediaType() == TipoContenido.SERIE) normalizarResenasDeSerie(anterioresBloqueadas);
+            Integer numero = request.mediaType() == TipoContenido.SERIE ? seleccion.iterator().next() : null;
+            var candidatas = anterioresBloqueadas.stream()
+                    .filter(r -> request.mediaType() == TipoContenido.PELICULA || Objects.equals(r.getNumeroTemporada(), numero))
+                    .sorted(Comparator.comparing(Resena::getId).reversed()).toList();
+            var resena = candidatas.stream().findFirst()
                     .orElseGet(() -> new Resena(request.calificacion(), "", usuario, peliculas.getReferenceById(contenido.getId())));
             LocalDateTime fecha = resena.getFechaVista();
-            boolean sumaTemporada = !resena.getTemporadasVistas().containsAll(seleccion);
-            resena.setFechaVista(fecha == null || sumaTemporada ? LocalDateTime.now() : fecha);
+            resena.setFechaVista(fecha == null ? LocalDateTime.now() : fecha);
             resena.setCalificacion(request.calificacion());
             resena.setComentario(request.comentario() == null ? "" : request.comentario().trim());
             resena.setSpoiler(request.spoiler());
+            resena.setNumeroTemporada(numero);
             resena.getTemporadasVistas().clear(); resena.getTemporadasVistas().addAll(seleccion);
-            // Consolidar duplicados antiguos de este usuario y contenido, nunca de otro tipo o cuenta.
-            eliminar(anterioresBloqueadas.stream().skip(1).toList());
-            return ResenaService.toResponse(resenas.saveAndFlush(resena));
+            // Consolidar únicamente duplicados de la misma película o temporada.
+            eliminar(candidatas.stream().skip(1).toList());
+            var guardada = resenas.saveAndFlush(resena);
+            var vistas = buscar(email, request.mediaType(), request.tmdbId()).stream()
+                    .flatMap(r -> r.getTemporadasVistas().stream()).collect(java.util.stream.Collectors.toSet());
+            boolean completa = request.mediaType() == TipoContenido.SERIE && !requeridas.isEmpty() && vistas.containsAll(requeridas);
+            if (request.mediaType() == TipoContenido.PELICULA || completa) {
+                usuario.getPeliculasFavoritas().removeIf(p -> p.getMediaType() == request.mediaType()
+                        && p.getTmdbId().equals(request.tmdbId()));
+            }
+            return respuesta(guardada, completa);
+        });
+    }
+
+    public void marcarTemporadaNoVista(String email, Long id, int numero) {
+        TipoContenido.SERIE.clave(id);
+        if (numero <= 0) throw new IllegalArgumentException("La temporada no es válida");
+        escritura.executeWithoutResult(status -> {
+            var usuario = usuarios.findByEmailForUpdate(email).orElseThrow();
+            var existentes = buscar(email, TipoContenido.SERIE, id);
+            normalizarResenasDeSerie(existentes);
+            eliminar(existentes.stream().filter(r -> Objects.equals(r.getNumeroTemporada(), numero)).toList());
+            peliculas.findByMediaTypeAndTmdbId(TipoContenido.SERIE, id).ifPresent(contenido -> {
+                if (usuario.getPeliculasFavoritas().stream().noneMatch(p -> p.getId().equals(contenido.getId()))) {
+                    usuario.getPeliculasFavoritas().add(peliculas.getReferenceById(contenido.getId()));
+                }
+            });
         });
     }
 
@@ -136,6 +165,50 @@ public class BibliotecaService {
         if (lista.isEmpty()) return;
         reportes.deleteByResenaIdIn(lista.stream().map(Resena::getId).toList());
         resenas.deleteAll(lista);
+    }
+    private void normalizarResenasDeSerie(List<Resena> lista) {
+        for (var original : List.copyOf(lista)) {
+            if (original.getNumeroTemporada() != null || original.getTemporadasVistas().isEmpty()) continue;
+            var numeros = original.getTemporadasVistas().stream().sorted().toList();
+            original.setNumeroTemporada(numeros.get(0));
+            original.getTemporadasVistas().clear(); original.getTemporadasVistas().add(numeros.get(0));
+            for (int i = 1; i < numeros.size(); i++) {
+                var copia = new Resena(original.getCalificacion(), original.getComentario(), original.getUsuario(), original.getPelicula());
+                copia.setSpoiler(original.isSpoiler()); copia.setFechaVista(original.getFechaVista());
+                copia.setNumeroTemporada(numeros.get(i)); copia.getTemporadasVistas().add(numeros.get(i));
+                lista.add(resenas.save(copia));
+            }
+        }
+        resenas.flush();
+    }
+    private static String claveResena(Resena r) {
+        if (r.getPelicula().getMediaType() == TipoContenido.PELICULA) return "movie:" + r.getPelicula().getId();
+        Integer numero = r.getNumeroTemporada();
+        if (numero == null && r.getTemporadasVistas().size() == 1) numero = r.getTemporadasVistas().iterator().next();
+        return "tv:" + r.getPelicula().getId() + ":" + (numero == null ? "legacy:" + r.getId() : numero);
+    }
+    private static Set<Integer> temporadasEstrenadas(TemporadasSerieResponse catalogo) {
+        var hoy = java.time.LocalDate.now(java.time.ZoneOffset.UTC);
+        return catalogo.temporadas().stream()
+                .filter(t -> t.cantidadEpisodios() != null && t.cantidadEpisodios() > 0)
+                .filter(t -> t.estreno() != null && !t.estreno().isAfter(hoy))
+                .map(TemporadasSerieResponse.Temporada::numero).collect(java.util.stream.Collectors.toSet());
+    }
+    private static ResenaResponse respuesta(Resena r, boolean completa) {
+        var base = ResenaService.toResponse(r);
+        return new ResenaResponse(base.id(), base.tmdbId(), base.titulo(), base.posterPath(), base.calificacion(),
+                base.comentario(), base.autor(), base.fechaActualizacion(), base.spoiler(), base.ocultadaModeracion(),
+                base.mediaType(), base.temporadasVistas(), base.fechaVista(), base.numeroTemporada(), completa);
+    }
+    private static List<ResenaResponse> respuestasCompatibles(Resena r) {
+        var base = ResenaService.toResponse(r);
+        if (base.mediaType() != TipoContenido.SERIE || base.numeroTemporada() != null || base.temporadasVistas().size() < 2) {
+            return List.of(base);
+        }
+        return base.temporadasVistas().stream().sorted().map(numero -> new ResenaResponse(base.id(), base.tmdbId(),
+                base.titulo(), base.posterPath(), base.calificacion(), base.comentario(), base.autor(),
+                base.fechaActualizacion(), base.spoiler(), base.ocultadaModeracion(), base.mediaType(), Set.of(numero),
+                base.fechaVista(), numero, false)).toList();
     }
     private static void validarIdentidad(TipoContenido tipo, Long id) {
         if (tipo == null) throw new IllegalArgumentException("Indicá si es película o serie");

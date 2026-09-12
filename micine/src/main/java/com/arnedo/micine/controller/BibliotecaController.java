@@ -39,6 +39,11 @@ public class BibliotecaController {
         biblioteca.marcarNoVista(p.getName(), TipoContenido.desdeCodigo(tipo), id);
         return ResponseEntity.noContent().build();
     }
+    @DeleteMapping("/resenas/tv/{id}/temporadas/{numero}")
+    public ResponseEntity<Void> noVistaTemporada(Principal p, @PathVariable Long id, @PathVariable int numero) {
+        biblioteca.marcarTemporadaNoVista(p.getName(), id, numero);
+        return ResponseEntity.noContent().build();
+    }
     @GetMapping("/progreso")
     public ProgresoResponse progreso(Principal p) { return progreso.propio(p.getName()); }
 }

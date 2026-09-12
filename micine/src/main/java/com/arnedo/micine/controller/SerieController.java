@@ -35,6 +35,11 @@ public class SerieController {
         return catalogo.buscar(query);
     }
 
+    @GetMapping("/{tmdbId}/plataformas")
+    public java.util.List<String> plataformas(@PathVariable Long tmdbId) {
+        return catalogo.plataformas(tmdbId);
+    }
+
     @PostMapping("/recomendadas/renovar")
     public CatalogoSeriesResponse renovar(Principal principal,
             @jakarta.validation.Valid @RequestBody com.arnedo.micine.dto.RenovarRecomendacionesRequest request) {

@@ -100,6 +100,8 @@ public class ResenaService {
 
     public static ResenaResponse toResponse(Resena resena) {
         Pelicula pelicula = resena.getPelicula();
+        Integer numero = resena.getNumeroTemporada();
+        if (numero == null && resena.getTemporadasVistas().size() == 1) numero = resena.getTemporadasVistas().iterator().next();
         return new ResenaResponse(
                 resena.getId(),
                 pelicula.getTmdbId(),
@@ -113,7 +115,9 @@ public class ResenaService {
                 resena.isOcultadaModeracion(),
                 pelicula.getMediaType(),
                 java.util.Set.copyOf(resena.getTemporadasVistas()),
-                resena.getFechaVista()
+                resena.getFechaVista(),
+                numero,
+                false
         );
     }
 

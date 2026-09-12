@@ -15,5 +15,7 @@ public record ResenaResponse(
         boolean ocultadaModeracion,
         TipoContenido mediaType,
         java.util.Set<Integer> temporadasVistas,
-        LocalDateTime fechaVista
+        LocalDateTime fechaVista,
+        Integer numeroTemporada,
+        boolean serieCompleta
 ) {}

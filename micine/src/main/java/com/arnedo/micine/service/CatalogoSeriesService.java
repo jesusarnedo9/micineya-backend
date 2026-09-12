@@ -51,6 +51,10 @@ public class CatalogoSeriesService {
         }
     }
 
+    public List<String> plataformas(Long tmdbId) {
+        return tmdb.obtenerPlataformas(tmdbId, TipoContenido.SERIE);
+    }
+
     public CatalogoSeriesResponse recomendar(String email, Set<Long> actualesIds, boolean registrar) {
         // Materializar las preferencias antes de llamar a TMDB: no mantener una conexión
         // a la base de datos ocupada mientras se consultan catálogo y trailers.

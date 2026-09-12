@@ -100,6 +100,14 @@ class ProgresoServiceTests {
         assertThat(insignias).containsExactly("SERIE_TRONOS", "SERIE_CICLO");
     }
 
+    @Test
+    void titulosCinefilosSeDesbloqueanConTresCincoYDiezBaldes() {
+        assertThat(ProgresoService.calcular(1L, 29).tituloCinefilo()).isNull();
+        assertThat(ProgresoService.calcular(1L, 30).tituloCinefilo()).isEqualTo("Cineasta entusiasta");
+        assertThat(ProgresoService.calcular(1L, 50).tituloCinefilo()).isEqualTo("Comprometido con el cine");
+        assertThat(ProgresoService.calcular(1L, 100).tituloCinefilo()).isEqualTo("Maestro del Cine");
+    }
+
     private record Cuenta(String email, Long id, String token) {}
     private Cuenta crear() {
         String suffix = UUID.randomUUID().toString().substring(0, 8);

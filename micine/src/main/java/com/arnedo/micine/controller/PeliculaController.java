@@ -42,6 +42,11 @@ public class PeliculaController {
         return tmdbService.buscarPeliculas(query);
     }
 
+    @GetMapping("/{tmdbId}/plataformas")
+    public java.util.List<String> plataformas(@PathVariable Long tmdbId) {
+        return tmdbService.obtenerPlataformas(tmdbId, com.arnedo.micine.dto.TipoContenido.PELICULA);
+    }
+
     @GetMapping("/recomendadas")
     public ResponseEntity<TmdbResponse> getRecomendadas(Principal principal) {
         return recomendar(principal, Set.of());
