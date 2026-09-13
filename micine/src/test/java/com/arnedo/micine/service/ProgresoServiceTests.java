@@ -129,6 +129,28 @@ class ProgresoServiceTests {
                 .containsExactly("SERIE_FAMILIA");
     }
 
+    @Test
+    void peakyYVikingosSeDesbloqueanConSeisTemporadasSinPremioExtra() {
+        assertThat(ProgresoService.insignias(Map.of(60574L, Set.of(1, 2, 3, 4, 5),
+                44217L, Set.of(0, 1, 2, 3, 4, 5)))).isEmpty();
+        var cuenta = crear();
+        var usuario = cuentas.findByEmail(cuenta.email).orElseThrow();
+        for (long tmdb : new long[]{60574L, 44217L}) {
+            var serie = new com.arnedo.micine.entity.Pelicula(tmdb, "Serie", null);
+            serie.setMediaType(com.arnedo.micine.dto.TipoContenido.SERIE);
+            serie = peliculas.save(serie);
+            var finalVista = new Resena(4, "Final", usuario, serie);
+            finalVista.setNumeroTemporada(6);
+            finalVista.getTemporadasVistas().add(6);
+            opiniones.saveAndFlush(finalVista);
+        }
+        var p = progreso.propio(cuenta.email);
+        assertThat(p.insignias()).containsExactly("SERIE_PEAKY", "SERIE_VIKINGOS");
+        assertThat(p.totalPochoclos()).isEqualTo(12);
+        assertThat(ProgresoService.insignias(Map.of(60574L, Set.of(1, 2, 3, 4, 5),
+                44217L, Set.of(1, 2, 3, 4, 5, 6)))).containsExactly("SERIE_VIKINGOS");
+    }
+
     private record Cuenta(String email, Long id, String token) {}
     private Cuenta crear() {
         String suffix = UUID.randomUUID().toString().substring(0, 8);

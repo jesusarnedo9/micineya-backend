@@ -14,7 +14,9 @@ public class ProgresoService {
             new InsigniaSerie("SERIE_QUIMICA", 1396L, java.util.Set.of(1, 2, 3, 4, 5)),
             new InsigniaSerie("SERIE_CICLO", 70523L, java.util.Set.of(1, 2, 3)),
             new InsigniaSerie("SERIE_JUSTICIA", 60059L, java.util.Set.of(1, 2, 3, 4, 5, 6)),
-            new InsigniaSerie("SERIE_FAMILIA", 1398L, java.util.Set.of(1, 2, 3, 4, 5, 6))
+            new InsigniaSerie("SERIE_FAMILIA", 1398L, java.util.Set.of(1, 2, 3, 4, 5, 6)),
+            new InsigniaSerie("SERIE_PEAKY", 60574L, java.util.Set.of(1, 2, 3, 4, 5, 6)),
+            new InsigniaSerie("SERIE_VIKINGOS", 44217L, java.util.Set.of(1, 2, 3, 4, 5, 6))
     );
     private final ResenaRepository resenas;
     private final UsuarioRepository usuarios;
