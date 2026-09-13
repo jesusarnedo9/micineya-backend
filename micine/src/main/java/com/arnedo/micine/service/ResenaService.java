@@ -114,7 +114,7 @@ public class ResenaService {
                 resena.isSpoiler(),
                 resena.isOcultadaModeracion(),
                 pelicula.getMediaType(),
-                java.util.Set.copyOf(resena.getTemporadasVistas()),
+                ProgresoTemporadas.vistas(resena),
                 resena.getFechaVista(),
                 numero,
                 false

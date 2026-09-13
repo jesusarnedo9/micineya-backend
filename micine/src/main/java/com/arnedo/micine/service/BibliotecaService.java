@@ -95,10 +95,12 @@ public class BibliotecaService {
         var nuevas = new HashSet<>(seleccion); nuevas.removeAll(anteriores);
         String titulo = request.titulo(); String poster = request.posterPath();
         TemporadasSerieResponse catalogo = null;
-        // Solo verificar las temporadas agregadas. Editar el texto o quitar una temporada no depende de TMDB.
+        // Validar episodios solo de la temporada reseñada, no hacer N consultas por las anteriores.
+        // El catálogo también permite conservar el estado completo al editar una reseña.
         // Ninguna consulta HTTP se hace mientras se mantiene el bloqueo de la cuenta.
-        if (request.mediaType() == TipoContenido.SERIE && !nuevas.isEmpty()) {
-            catalogo = temporadas.validarParaRegistro(request.tmdbId(), nuevas);
+        if (request.mediaType() == TipoContenido.SERIE) {
+            catalogo = nuevas.isEmpty() ? temporadas.listar(request.tmdbId())
+                    : temporadas.validarParaRegistro(request.tmdbId(), nuevas);
             titulo = catalogo.titulo(); poster = catalogo.posterPath();
         }
         var requeridas = catalogo == null ? Set.<Integer>of() : temporadasEstrenadas(catalogo);
@@ -124,11 +126,13 @@ public class BibliotecaService {
             eliminar(candidatas.stream().skip(1).toList());
             var guardada = resenas.saveAndFlush(resena);
             var vistas = buscar(email, request.mediaType(), request.tmdbId()).stream()
-                    .flatMap(r -> r.getTemporadasVistas().stream()).collect(java.util.stream.Collectors.toSet());
+                    .flatMap(r -> ProgresoTemporadas.vistas(r).stream()).collect(java.util.stream.Collectors.toSet());
             boolean completa = request.mediaType() == TipoContenido.SERIE && !requeridas.isEmpty() && vistas.containsAll(requeridas);
             if (request.mediaType() == TipoContenido.PELICULA || completa) {
                 usuario.getPeliculasFavoritas().removeIf(p -> p.getMediaType() == request.mediaType()
                         && p.getTmdbId().equals(request.tmdbId()));
+            } else if (usuario.getPeliculasFavoritas().stream().noneMatch(p -> p.getId().equals(contenido.getId()))) {
+                usuario.getPeliculasFavoritas().add(peliculas.getReferenceById(contenido.getId()));
             }
             return respuesta(guardada, completa);
         });
@@ -141,7 +145,11 @@ public class BibliotecaService {
             var usuario = usuarios.findByEmailForUpdate(email).orElseThrow();
             var existentes = buscar(email, TipoContenido.SERIE, id);
             normalizarResenasDeSerie(existentes);
-            eliminar(existentes.stream().filter(r -> Objects.equals(r.getNumeroTemporada(), numero)).toList());
+            var quitadas = existentes.stream().filter(r -> Objects.equals(r.getNumeroTemporada(), numero)).toList();
+            var restantes = existentes.stream().filter(r -> !Objects.equals(r.getNumeroTemporada(), numero)).toList();
+            eliminar(quitadas);
+            // Quitar una reseña anterior no vuelve pendiente una serie que sigue completa.
+            if (quitadas.isEmpty() || restantes.stream().anyMatch(r -> ProgresoTemporadas.vistas(r).contains(numero))) return;
             peliculas.findByMediaTypeAndTmdbId(TipoContenido.SERIE, id).ifPresent(contenido -> {
                 if (usuario.getPeliculasFavoritas().stream().noneMatch(p -> p.getId().equals(contenido.getId()))) {
                     usuario.getPeliculasFavoritas().add(peliculas.getReferenceById(contenido.getId()));
@@ -202,12 +210,13 @@ public class BibliotecaService {
     }
     private static List<ResenaResponse> respuestasCompatibles(Resena r) {
         var base = ResenaService.toResponse(r);
-        if (base.mediaType() != TipoContenido.SERIE || base.numeroTemporada() != null || base.temporadasVistas().size() < 2) {
+        if (base.mediaType() != TipoContenido.SERIE || base.numeroTemporada() != null || r.getTemporadasVistas().size() < 2) {
             return List.of(base);
         }
-        return base.temporadasVistas().stream().sorted().map(numero -> new ResenaResponse(base.id(), base.tmdbId(),
+        // Expandir solo reseñas históricas reales, nunca las temporadas inferidas del progreso.
+        return r.getTemporadasVistas().stream().sorted().map(numero -> new ResenaResponse(base.id(), base.tmdbId(),
                 base.titulo(), base.posterPath(), base.calificacion(), base.comentario(), base.autor(),
-                base.fechaActualizacion(), base.spoiler(), base.ocultadaModeracion(), base.mediaType(), Set.of(numero),
+                base.fechaActualizacion(), base.spoiler(), base.ocultadaModeracion(), base.mediaType(), ProgresoTemporadas.hasta(numero),
                 base.fechaVista(), numero, false)).toList();
     }
     private static void validarIdentidad(TipoContenido tipo, Long id) {

@@ -74,6 +74,7 @@ class BibliotecaSeriesTests {
         var cuenta = crear(); long id = IDS.incrementAndGet();
         prepararTemporadas(id, 1);
         prepararTemporadas(id, 2);
+        prepararTemporadas(id);
         var primera = biblioteca.resenar(cuenta.email, resena(id, Set.of(1), "Primera"));
         var editada = biblioteca.resenar(cuenta.email, resena(id, Set.of(1), "Editada"));
         assertThat(editada.id()).isEqualTo(primera.id());
@@ -86,7 +87,7 @@ class BibliotecaSeriesTests {
         assertThat(p.peliculasVistas()).isZero(); assertThat(p.seriesVistas()).isEqualTo(1);
         assertThat(p.temporadasVistas()).isEqualTo(2); assertThat(p.totalPochoclos()).isEqualTo(2);
         biblioteca.marcarTemporadaNoVista(cuenta.email, id, 1);
-        assertThat(progreso.propio(cuenta.email).totalPochoclos()).isEqualTo(1);
+        assertThat(progreso.propio(cuenta.email).totalPochoclos()).isEqualTo(2);
         biblioteca.marcarNoVista(cuenta.email, TipoContenido.SERIE, id);
         biblioteca.marcarNoVista(cuenta.email, TipoContenido.SERIE, id);
         assertThat(progreso.propio(cuenta.email).totalPochoclos()).isZero();
@@ -159,6 +160,7 @@ class BibliotecaSeriesTests {
     void perfilMixtoOrdenaPorVistaNoPorEdicionYCuentaAjenaNoPuedeBorrarla() {
         var cuenta = crear(); var otra = crear(); long id = IDS.incrementAndGet();
         prepararTemporadas(id, 1);
+        prepararTemporadas(id);
         var serie = biblioteca.resenar(cuenta.email, resena(id, Set.of(1), "Antigua"));
         resenas.findById(serie.id()).orElseThrow().setFechaVista(LocalDateTime.now().minusDays(2));
         biblioteca.resenar(cuenta.email, new BibliotecaDtos.Resenar(TipoContenido.PELICULA,
@@ -205,6 +207,67 @@ class BibliotecaSeriesTests {
         assertThat(resenas.findByUsuarioEmail(cuenta.email)).isEmpty();
     }
 
+    @Test
+    void resenarDiezDeTreceGuardaYCuentaAnterioresSinInventarResenas() {
+        var cuenta = crear(); long id = IDS.incrementAndGet();
+        prepararSalto(id, 13, 10);
+        prepararSalto(id, 13, 4);
+        var decima = biblioteca.resenar(cuenta.email, resena(id, Set.of(10), "Voy por la diez"));
+        assertThat(decima.numeroTemporada()).isEqualTo(10);
+        assertThat(decima.temporadasVistas()).containsExactlyInAnyOrder(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+        assertThat(decima.serieCompleta()).isFalse();
+        assertThat(biblioteca.favoritas(cuenta.email)).extracting(BibliotecaDtos.Favorita::tmdbId).containsExactly(id);
+        assertThat(biblioteca.mias(cuenta.email)).hasSize(1);
+        assertThat(resenas.findByUsuarioEmail(cuenta.email)).hasSize(1);
+        assertThat(progreso.propio(cuenta.email).totalPochoclos()).isEqualTo(10);
+
+        biblioteca.resenar(cuenta.email, resena(id, Set.of(4), "También opino de la cuatro"));
+        assertThat(progreso.propio(cuenta.email).totalPochoclos()).isEqualTo(10);
+        assertThat(biblioteca.mias(cuenta.email)).hasSize(2);
+        biblioteca.marcarTemporadaNoVista(cuenta.email, id, 10);
+        assertThat(progreso.propio(cuenta.email).totalPochoclos()).isEqualTo(4);
+        biblioteca.marcarTemporadaNoVista(cuenta.email, id, 4);
+        assertThat(progreso.propio(cuenta.email).totalPochoclos()).isZero();
+    }
+
+    @Test
+    void ultimaTemporadaCompletaSerieEInsigniaSinResenarLasAnteriores() {
+        var cuenta = crear(); long id = 60059L;
+        prepararSalto(id, 6, 6);
+        tmdb.expect(requestTo(containsString("/tv/" + id + "?")))
+                .andRespond(withSuccess(detalle(id, 6), MediaType.APPLICATION_JSON));
+        prepararSalto(id, 6, 3);
+        var sexta = biblioteca.resenar(cuenta.email, resena(id, Set.of(6), "Final"));
+        assertThat(sexta.serieCompleta()).isTrue();
+        assertThat(sexta.temporadasVistas()).hasSize(6);
+        assertThat(biblioteca.favoritas(cuenta.email)).isEmpty();
+        assertThat(biblioteca.mias(cuenta.email)).hasSize(1);
+        assertThat(progreso.propio(cuenta.email).totalPochoclos()).isEqualTo(6);
+        assertThat(progreso.propio(cuenta.email).insignias()).contains("SERIE_JUSTICIA");
+
+        var editada = biblioteca.resenar(cuenta.email, resena(id, Set.of(6), "Final editado"));
+        assertThat(editada.id()).isEqualTo(sexta.id());
+        assertThat(editada.serieCompleta()).isTrue();
+        assertThat(biblioteca.favoritas(cuenta.email)).isEmpty();
+        assertThat(progreso.propio(cuenta.email).totalPochoclos()).isEqualTo(6);
+        biblioteca.resenar(cuenta.email, resena(id, Set.of(3), "Una reseña anterior"));
+        biblioteca.marcarTemporadaNoVista(cuenta.email, id, 3);
+        assertThat(biblioteca.favoritas(cuenta.email)).isEmpty();
+        assertThat(progreso.propio(cuenta.email).totalPochoclos()).isEqualTo(6);
+        biblioteca.marcarTemporadaNoVista(cuenta.email, id, 6);
+        assertThat(progreso.propio(cuenta.email).insignias()).doesNotContain("SERIE_JUSTICIA");
+        assertThat(progreso.propio(cuenta.email).totalPochoclos()).isZero();
+    }
+
+    private void prepararSalto(long id, int total, int numero) {
+        tmdb.expect(requestTo(containsString("/tv/" + id + "?")))
+                .andRespond(withSuccess(detalle(id, total), MediaType.APPLICATION_JSON));
+        tmdb.expect(requestTo(containsString("/tv/" + id + "/season/" + numero + "?")))
+                .andRespond(withSuccess("{\"season_number\":" + numero + ",\"episodes\":["
+                        + "{\"id\":101,\"episode_number\":1,\"air_date\":\"2020-01-01\"},"
+                        + "{\"id\":102,\"episode_number\":2,\"air_date\":\"2020-01-02\"}]}", MediaType.APPLICATION_JSON));
+    }
+
     private void prepararTemporadas(long id, int... numeros) {
         tmdb.expect(requestTo(containsString("/tv/" + id + "?"))).andRespond(withSuccess(detalle(id), MediaType.APPLICATION_JSON));
         // Set.copyOf no promete orden. Para múltiples temporadas se validan URLs en cualquier orden.
@@ -221,8 +284,9 @@ class BibliotecaSeriesTests {
                     });
         }
     }
-    private String detalle(long id) {
-        String seasons = java.util.stream.IntStream.rangeClosed(1, 10).mapToObj(n ->
+    private String detalle(long id) { return detalle(id, 10); }
+    private String detalle(long id, int total) {
+        String seasons = java.util.stream.IntStream.rangeClosed(1, total).mapToObj(n ->
                 "{\"season_number\":" + n + ",\"name\":\"Temporada " + n
                         + "\",\"episode_count\":2,\"air_date\":\"2020-01-01\"}")
                 .collect(java.util.stream.Collectors.joining(","));

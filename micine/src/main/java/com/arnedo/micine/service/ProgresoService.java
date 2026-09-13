@@ -32,7 +32,7 @@ public class ProgresoService {
         var seriesPorTmdb = new java.util.HashMap<Long, java.util.Set<Integer>>();
         resenas.findByUsuarioIdAndPeliculaMediaType(id, com.arnedo.micine.dto.TipoContenido.SERIE)
                 .forEach(r -> {
-                    var temporadas = r.getTemporadasVistas().stream().filter(n -> n != null && n > 0).toList();
+                    var temporadas = ProgresoTemporadas.vistas(r);
                     series.computeIfAbsent(r.getPelicula().getId(), key -> new java.util.HashSet<>()).addAll(temporadas);
                     seriesPorTmdb.computeIfAbsent(r.getPelicula().getTmdbId(), key -> new java.util.HashSet<>()).addAll(temporadas);
                 });
