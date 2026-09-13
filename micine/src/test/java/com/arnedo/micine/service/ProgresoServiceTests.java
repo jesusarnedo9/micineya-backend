@@ -101,11 +101,32 @@ class ProgresoServiceTests {
     }
 
     @Test
-    void titulosCinefilosSeDesbloqueanConTresCincoYDiezBaldes() {
+    void titulosCinefilosMuestranElMayorNivelAlcanzado() {
         assertThat(ProgresoService.calcular(1L, 29).tituloCinefilo()).isNull();
         assertThat(ProgresoService.calcular(1L, 30).tituloCinefilo()).isEqualTo("Cineasta entusiasta");
         assertThat(ProgresoService.calcular(1L, 50).tituloCinefilo()).isEqualTo("Comprometido con el cine");
         assertThat(ProgresoService.calcular(1L, 100).tituloCinefilo()).isEqualTo("Maestro del Cine");
+        assertThat(ProgresoService.calcular(1L, 199).tituloCinefilo()).isEqualTo("Maestro del Cine");
+        assertThat(ProgresoService.calcular(1L, 200).tituloCinefilo()).isEqualTo("Dios del cine");
+        assertThat(ProgresoService.calcular(1L, 499).tituloCinefilo()).isEqualTo("Dios del cine");
+        assertThat(ProgresoService.calcular(1L, 500).tituloCinefilo()).isEqualTo("Eminencia Suprema de la Gran Pantalla");
+        assertThat(ProgresoService.calcular(1L, 610).tituloCinefilo()).isEqualTo("Eminencia Suprema de la Gran Pantalla");
+    }
+
+    @Test
+    void nuevasInsigniasRequierenSeisTemporadasRegulares() {
+        assertThat(ProgresoService.insignias(Map.of(
+                60059L, Set.of(0, 1, 2, 3, 4, 5),
+                1398L, Set.of(1, 2, 3, 4, 6)))).isEmpty();
+        assertThat(ProgresoService.insignias(Map.of(
+                60059L, Set.of(1, 2, 3, 4, 5, 6),
+                1398L, Set.of(0, 1, 2, 3, 4, 5, 6))))
+                .containsExactly("SERIE_JUSTICIA", "SERIE_FAMILIA");
+        // Deshacer una temporada retira solo la insignia de esa serie.
+        assertThat(ProgresoService.insignias(Map.of(
+                60059L, Set.of(1, 2, 3, 4, 5),
+                1398L, Set.of(1, 2, 3, 4, 5, 6))))
+                .containsExactly("SERIE_FAMILIA");
     }
 
     private record Cuenta(String email, Long id, String token) {}

@@ -12,7 +12,9 @@ public class ProgresoService {
     private static final java.util.List<InsigniaSerie> INSIGNIAS_SERIES = java.util.List.of(
             new InsigniaSerie("SERIE_TRONOS", 1399L, java.util.Set.of(1, 2, 3, 4, 5, 6, 7, 8)),
             new InsigniaSerie("SERIE_QUIMICA", 1396L, java.util.Set.of(1, 2, 3, 4, 5)),
-            new InsigniaSerie("SERIE_CICLO", 70523L, java.util.Set.of(1, 2, 3))
+            new InsigniaSerie("SERIE_CICLO", 70523L, java.util.Set.of(1, 2, 3)),
+            new InsigniaSerie("SERIE_JUSTICIA", 60059L, java.util.Set.of(1, 2, 3, 4, 5, 6)),
+            new InsigniaSerie("SERIE_FAMILIA", 1398L, java.util.Set.of(1, 2, 3, 4, 5, 6))
     );
     private final ResenaRepository resenas;
     private final UsuarioRepository usuarios;
@@ -49,6 +51,8 @@ public class ProgresoService {
     }
 
     static String titulo(long baldes) {
+        if (baldes >= 50) return "Eminencia Suprema de la Gran Pantalla";
+        if (baldes >= 20) return "Dios del cine";
         if (baldes >= 10) return "Maestro del Cine";
         if (baldes >= 5) return "Comprometido con el cine";
         if (baldes >= 3) return "Cineasta entusiasta";
